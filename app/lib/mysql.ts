@@ -35,8 +35,8 @@ export function getPool(): mysql.Pool {
 
 export async function query<T = any>(sql: string, params: unknown[] = []): Promise<T[]> {
   const pool = getPool();
-  const [rows] = await pool.execute<T[]>(sql, params);
-  return rows;
+  const [rows] = await pool.execute(sql, params);
+  return rows as unknown as T[];
 }
 
 
