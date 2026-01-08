@@ -1,0 +1,63 @@
+### Test User Registration
+POST http://localhost:3000/api/auth/register
+Content-Type: application/json
+
+{
+  "firstname": "John Doe",
+  "username": "johndoe",
+  "password": "SecurePassword123!",
+  "phone_num": "1234567890",
+  "role_id": 3,
+  "state": 1,
+  "city": 1,
+  "device_id": "test-device-123",
+  "player_id": "test-player-123"
+}
+
+###
+
+### Test User Login
+POST http://localhost:3000/api/auth/login
+Content-Type: application/json
+
+{
+  "phone_num": "1234567890",
+  "password": "SecurePassword123!"
+}
+
+###
+
+### Test Physician Registration
+POST http://localhost:3000/api/auth/register
+Content-Type: application/json
+
+{
+  "firstname": "Dr. Smith",
+  "username": "drsmith",
+  "password": "DoctorPass123!",
+  "phone_num": "9876543210",
+  "role_id": 1,
+  "state": 1,
+  "city": 1,
+  "physician_id": 1
+}
+
+###
+
+### Test Laboratory Registration
+POST http://localhost:3000/api/auth/register
+Content-Type: application/json
+
+{
+  "firstname": "Lab Admin",
+  "username": "labadmin",
+  "password": "LabPass123!",
+  "phone_num": "5555555555",
+  "role_id": 2,
+  "state": 1,
+  "city": 1,
+  "laboratory_id": 1
+}
+
+###
+
