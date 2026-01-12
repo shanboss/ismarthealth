@@ -8,13 +8,44 @@ import DoctorDetails from "./DoctorDetails";
 import TestsSelection from "./TestsSelection";
 import Confirm from "./Confirm";
 
+type PatientQueueResult = {
+  patientqueue_id: number;
+  BillId: string;
+  medical_num: string;
+  firstname: string;
+  mailid: string;
+  phonenum: string;
+  refer_date: Date;
+  patient_unique_id: string;
+  physician_id: number | null;
+  phyfname: string | null;
+  referred_id: number;
+  ID: number;
+  billing_id: number;
+  laboratory_id: number;
+  ref_type: string;
+  lab_test_status: number;
+  billing_status: number;
+  is_sync: number;
+  created_on: Date;
+};
+
+type SelectedTest = {
+  id: number;
+  name: string;
+  department: string;
+  price: string;
+  code: string;
+};
+
 export default function AddLabTestWizard() {
   const [active, setActive] = useState<StepId>("search");
   const [data, setData] = useState<{
     phone?: string;
+    selectedPatient?: PatientQueueResult;
     patient?: Record<string, unknown>;
     doctor?: Record<string, unknown>;
-    tests?: string[];
+    tests?: SelectedTest[];
   }>({});
 
   const completed: StepId[] = useMemo(() => {
@@ -44,14 +75,36 @@ export default function AddLabTestWizard() {
 
       {active === "search" ? (
         <SearchPatient
-          onNext={({ phone }) => {
-            setData((d) => ({ ...d, phone }));
-            next("add");
+          onNext={({ phone, patient }) => {
+            if (patient) {
+              // Patient found and selected, skip to doctor details
+              // Also mark the add step as completed by setting patient data
+              setData((d) => ({
+                ...d,
+                phone,
+                selectedPatient: patient,
+                patient: {
+                  firstName: patient.firstname,
+                  phone: patient.phonenum,
+                  email: patient.mailid,
+                  // Include other relevant patient data
+                },
+              }));
+              next("doctor");
+            } else {
+              // No patient selected, go to add patient page
+              setData((d) => ({ ...d, phone, selectedPatient: undefined }));
+              next("add");
+            }
           }}
         />
       ) : active === "add" ? (
         <AddPatient
-          initial={{ phone: data.phone }}
+          initial={{
+            phone: data.selectedPatient?.phonenum || data.phone,
+            firstName: data.selectedPatient?.firstname || "",
+            email: data.selectedPatient?.mailid || "",
+          }}
           onPrev={() => next("search")}
           onNext={(patient) => {
             setData((d) => ({ ...d, patient }));

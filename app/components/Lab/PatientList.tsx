@@ -41,7 +41,6 @@ type Patient = {
   settled: boolean;
 };
 
-
 export default function PatientList() {
   const router = useRouter();
   const [page, setPage] = useState<number>(1);
@@ -66,14 +65,16 @@ export default function PatientList() {
           page: page.toString(),
           limit: "10",
         });
-        
+
         if (query.trim()) {
           params.append("search", query.trim());
         }
-        
-        const response = await fetch(`/api/lab/patient-queue?${params.toString()}`);
+
+        const response = await fetch(
+          `/api/lab/patient-queue?${params.toString()}`
+        );
         const data = await response.json();
-        
+
         if (data.success) {
           setPatients(data.data);
           setPagination(data.pagination);
@@ -121,7 +122,8 @@ export default function PatientList() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="text-sm text-foreground/70">
-          Showing {displayPatients.length} of {pagination.totalCount} total patients
+          Showing {displayPatients.length} of {pagination.totalCount} total
+          patients
         </div>
         <div className="inline-flex items-center gap-2">
           <label className="text-sm text-foreground/80">Search:</label>
@@ -224,11 +226,11 @@ export default function PatientList() {
           <ChevronLeftIcon className="h-4 w-4" />
           Previous
         </button>
-        
+
         <div className="rounded-md border border-foreground/20 bg-background px-4 py-2 text-sm font-medium text-foreground">
           Page {pagination.page} of {pagination.totalPages}
         </div>
-        
+
         <button
           onClick={() => setPage((p) => Math.min(pagination.totalPages, p + 1))}
           disabled={!pagination.hasNext}

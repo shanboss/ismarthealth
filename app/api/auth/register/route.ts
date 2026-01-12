@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/app/lib/prisma";
-import bcrypt from "bcrypt";
+import crypto from "crypto";
 
 // Type for the registration request body
 interface RegisterRequest {
@@ -24,9 +24,17 @@ export async function POST(request: NextRequest) {
     const body: RegisterRequest = await request.json();
 
     // Validate required fields
-    if (!body.firstname || !body.username || !body.password || !body.phone_num) {
+    if (
+      !body.firstname ||
+      !body.username ||
+      !body.password ||
+      !body.phone_num
+    ) {
       return NextResponse.json(
-        { error: "Missing required fields: firstname, username, password, phone_num" },
+        {
+          error:
+            "Missing required fields: firstname, username, password, phone_num",
+        },
         { status: 400 }
       );
     }
@@ -70,9 +78,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Hash the password
-    const saltRounds = 10;
-    const hashedPassword = await bcrypt.hash(body.password, saltRounds);
+    // Hash the password using MD5
+    const hashedPassword = crypto
+      .createHash("md5")
+      .update(body.password)
+      .digest("hex");
 
     // Create the user
     const newUser = await prisma.login_details.create({
@@ -98,19 +108,21 @@ export async function POST(request: NextRequest) {
     });
 
     // Return success response (excluding password)
-    return NextResponse.json({
-      success: true,
-      message: "User registered successfully",
-      user: {
-        login_id: newUser.login_id,
-        firstname: newUser.firstname,
-        username: newUser.username,
-        phone_num: newUser.phone_num,
-        role_id: newUser.role_id,
-        created_on: newUser.created_on,
+    return NextResponse.json(
+      {
+        success: true,
+        message: "User registered successfully",
+        user: {
+          login_id: newUser.login_id,
+          firstname: newUser.firstname,
+          username: newUser.username,
+          phone_num: newUser.phone_num,
+          role_id: newUser.role_id,
+          created_on: newUser.created_on,
+        },
       },
-    }, { status: 201 });
-
+      { status: 201 }
+    );
   } catch (error) {
     console.error("Registration error:", error);
     return NextResponse.json(
@@ -119,4 +131,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-

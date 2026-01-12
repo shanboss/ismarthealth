@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/app/lib/prisma";
-import bcrypt from "bcrypt";
+import crypto from "crypto";
 import jwt from "jsonwebtoken";
 
 // Type for the login request body
@@ -41,10 +41,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verify password
-    const passwordMatch = await bcrypt.compare(body.password, user.password);
+    // Verify password using MD5
+    const md5Hash = crypto
+      .createHash("md5")
+      .update(body.password)
+      .digest("hex");
 
-    if (!passwordMatch) {
+    if (md5Hash !== user.password) {
       return NextResponse.json(
         { error: "Invalid credentials" },
         { status: 401 }
