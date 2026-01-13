@@ -1,0 +1,843 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model barcode {
+  barcode_id    Int      @id @default(autoincrement())
+  billing_id    Int
+  barcode       String   @db.VarChar(500)
+  barcode_image String   @db.VarChar(500)
+  created_date  DateTime @db.DateTime(0)
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model billing {
+  billing_id        Int     @id @default(autoincrement())
+  laboratory_tests  String  @db.VarChar(500)
+  medical_num       String? @db.VarChar(50)
+  patient_unique_id String? @db.VarChar(50)
+  tot_amt           String? @db.VarChar(50)
+  discount          String? @db.VarChar(50)
+  discount_type     Int
+  net_amt           String? @db.VarChar(50)
+  adv_amt           String  @db.VarChar(50)
+  balance_amt       String  @db.VarChar(100)
+  balance_pymnt2    String  @db.VarChar(100)
+  final_balance     String  @db.VarChar(100)
+  lab_id            Int
+  unique_billid     String  @db.VarChar(100)
+  created_on        String? @db.VarChar(100)
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model billing_log {
+  billing_log_id Int      @id @default(autoincrement())
+  billing_id     Int
+  amt            String   @db.VarChar(200)
+  payment_method Int
+  added_date     DateTime @default(now()) @db.Timestamp(0)
+}
+
+model bloodgroup_details {
+  bloodgroup_id   Int     @id @default(autoincrement())
+  bloodgroup_name String? @db.VarChar(40)
+  active          Int?    @default(1)
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model city {
+  city_id   Int     @id @default(autoincrement())
+  city_name String  @db.VarChar(30)
+  state_id  Int
+  active    Boolean @default(true)
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model clinic_module_activation_request {
+  clinic_module_activation_request_id Int      @id @default(autoincrement())
+  name                                String   @db.VarChar(500)
+  email                               String   @db.VarChar(200)
+  phone_num                           String   @db.VarChar(50)
+  physicianid                         Int
+  message                             String   @db.Text
+  is_activated                        Int
+  added_date                          DateTime @default(now()) @db.Timestamp(0)
+}
+
+model clinical_parameters {
+  clinical_parameterid     Int     @id @default(autoincrement())
+  blood_pressure           String  @db.VarChar(50)
+  systolic_blood_pressure  String  @db.VarChar(50)
+  diastolic_blood_pressure String  @db.VarChar(50)
+  sugar                    String  @db.VarChar(50)
+  pulse                    String  @db.VarChar(50)
+  height                   String  @db.VarChar(50)
+  weight                   String  @db.VarChar(50)
+  temperature              String  @db.VarChar(50)
+  referral_patient_id      Int
+  dependent_id             Int
+  created_on               String? @db.VarChar(100)
+}
+
+model contact {
+  id           Int      @id @default(autoincrement())
+  name         String   @db.VarChar(500)
+  emailid      String   @db.VarChar(500)
+  subject      String   @db.VarChar(500)
+  message      String   @db.Text
+  created_date DateTime @default(now()) @db.Timestamp(0)
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model country {
+  country_id   Int     @id @default(autoincrement())
+  country_name String? @db.VarChar(50)
+  active       Boolean @default(true)
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model files {
+  id                Int          @id @default(autoincrement())
+  file_name         String       @db.VarChar(255)
+  type              String       @db.VarChar(100)
+  medical_num       String       @db.VarChar(50)
+  patient_unique_id String       @db.VarChar(100)
+  referral_id       String       @db.VarChar(100)
+  uploaded_on       DateTime     @db.DateTime(0)
+  status            files_status @default(dbgenerated("(1)"))
+}
+
+model investigation_details {
+  investigation_id           Int                          @id @default(autoincrement())
+  investigation_name         String?                      @db.VarChar(40)
+  active                     Int?                         @default(1)
+  investigation_test_details investigation_test_details[]
+}
+
+model investigation_file {
+  file_id            Int      @id @default(autoincrement())
+  investigation_file String   @db.VarChar(500)
+  referral_test_ID   Int
+  uploaded_on        DateTime @default(now()) @db.DateTime(0)
+}
+
+model investigation_test_details {
+  parse_id              Int                   @unique(map: "parse_id") @default(autoincrement())
+  test_name             String                @db.VarChar(200)
+  investigation_id      Int
+  parent_parse_id       Int
+  active                Int                   @default(1)
+  investigation_details investigation_details @relation(fields: [investigation_id], references: [investigation_id], onUpdate: Restrict, map: "investigation_test_details_ibfk_1")
+
+  @@index([investigation_id], map: "investigation_id")
+}
+
+model lab_leaves {
+  id           Int     @id @default(autoincrement())
+  lab_id       BigInt
+  dates        String  @db.VarChar(30)
+  start_time   String? @db.VarChar(30)
+  end_time     String? @db.VarChar(30)
+  reason       String? @db.Text
+  created_time String  @db.VarChar(30)
+}
+
+model lab_tests_price_updates {
+  id                   Int     @id @default(autoincrement())
+  lab_id               String? @db.VarChar(20)
+  test_id              String? @db.VarChar(100)
+  price                String? @db.VarChar(25)
+  unit                 String? @db.VarChar(100)
+  reference_range      String? @db.VarChar(100)
+  created_date         String? @db.VarChar(25)
+  created_by           String? @db.VarChar(50)
+  created_by_phone_num String? @db.VarChar(20)
+}
+
+model lab_timings {
+  id           Int                   @id @default(autoincrement())
+  lab_id       Int
+  theday       String                @db.VarChar(20)
+  work_type    lab_timings_work_type @default(dbgenerated("(WORKING_DAY)"))
+  start_time   String?               @db.VarChar(20)
+  end_time     String?               @db.VarChar(20)
+  created_time String?               @db.VarChar(20)
+  updated_time String?               @db.VarChar(20)
+}
+
+model laboratory_details {
+  laboratory_id           Int                       @unique(map: "laboratory_id") @default(autoincrement())
+  laboratory_name         String                    @db.VarChar(50)
+  laboratory_address      String                    @db.VarChar(100)
+  locality                String                    @db.VarChar(20)
+  laboratory_phone        String                    @db.VarChar(15)
+  laboratory_email        String                    @db.VarChar(50)
+  laboratory_password     String                    @db.VarChar(200)
+  lab_state               String                    @db.VarChar(50)
+  lab_city                String                    @db.VarChar(50)
+  lab_pincode             String                    @db.VarChar(10)
+  created_on              DateTime                  @db.DateTime(0)
+  updated_on              DateTime                  @db.DateTime(0)
+  active                  Int                       @default(1)
+  role_id                 Int                       @default(2)
+  profile_filename        String                    @db.VarChar(200)
+  profile_fullpath        String                    @db.VarChar(300)
+  laboratory_test_details laboratory_test_details[]
+
+  @@id([laboratory_phone, laboratory_email])
+}
+
+model laboratory_doctors {
+  laboratory_doctors_id Int      @id @default(autoincrement())
+  laboratory_id         Int
+  doc_firstname         String   @db.VarChar(200)
+  doc_lastname          String   @db.VarChar(200)
+  doc_password          String   @db.VarChar(200)
+  doc_phone_number      String   @db.VarChar(20)
+  doc_email             String   @db.VarChar(200)
+  doc_dept              Int
+  doc_signature         String   @db.VarChar(500)
+  added_date            DateTime @default(now()) @db.Timestamp(0)
+  doc_designation       String   @db.VarChar(100)
+  is_active             Int
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model laboratory_test_details {
+  laboratory_testid     Int                            @id @default(autoincrement())
+  laboratory_tests      String                         @db.VarChar(400)
+  code                  String                         @default(dbgenerated("()")) @db.VarChar(50)
+  display_order         Int?                           @default(0)
+  mnemonics             String?                        @default(dbgenerated("()")) @db.VarChar(100)
+  test_type             String?                        @default(dbgenerated("()")) @db.VarChar(50)
+  sub_department        String?                        @default(dbgenerated("()")) @db.VarChar(100)
+  sample_type           String?                        @default(dbgenerated("()")) @db.VarChar(100)
+  container_type        String?                        @default(dbgenerated("()")) @db.VarChar(100)
+  confidential          String?                        @default(dbgenerated("()")) @db.VarChar(10)
+  methodology           String?                        @default(dbgenerated("()")) @db.VarChar(200)
+  transport_temperature String?                        @default(dbgenerated("()")) @db.VarChar(50)
+  tat                   String?                        @default(dbgenerated("()")) @db.VarChar(50)
+  outsourcing_status    String?                        @default(dbgenerated("()")) @db.VarChar(50)
+  instrument            String?                        @default(dbgenerated("()")) @db.VarChar(200)
+  laboratory_id         Int
+  test_price            BigInt
+  custom_test_name      String                         @db.VarChar(250)
+  instruction           String                         @db.VarChar(1000)
+  test_method           String                         @db.VarChar(1000)
+  status                laboratory_test_details_status @default(dbgenerated("(ACTIVE)"))
+  status_changed_by     String                         @db.VarChar(50)
+  status_changed_on     String                         @db.VarChar(50)
+  unit                  String                         @db.VarChar(100)
+  reference_range       String                         @db.Text
+  age_gender_specific   String?                        @db.Text
+  critical_alert        String?                        @db.Text
+  interpretation        String?                        @db.Text
+  sort_order            Int
+  title_required        Int
+  laboratory_details    laboratory_details             @relation(fields: [laboratory_id], references: [laboratory_id], onUpdate: Restrict, map: "laboratory_test_details_ibfk_1")
+
+  @@index([laboratory_id], map: "laboratory_id")
+}
+
+model locality {
+  locality_id   Int    @id @default(autoincrement())
+  locality_name String @db.VarChar(50)
+  city_id       Int
+  active        Int    @default(1) @db.TinyInt
+}
+
+model login_details {
+  login_id      Int       @unique(map: "login_id") @default(autoincrement())
+  firstname     String    @db.VarChar(50)
+  physician_id  Int?
+  laboratory_id Int?
+  patient_id    Int?
+  phy_admin_id  Int?
+  username      String    @db.VarChar(100)
+  password      String    @db.VarChar(200)
+  phone_num     String    @id @db.VarChar(20)
+  state         Int
+  city          Int
+  count         Int       @default(0)
+  role_id       Int
+  active        Int       @default(1)
+  last_login    DateTime? @db.DateTime(0)
+  created_on    DateTime  @default(now()) @db.Timestamp(0)
+  updated_on    DateTime  @db.DateTime(0)
+  otp           Int
+  device_id     String    @db.VarChar(100)
+  player_id     String    @db.VarChar(100)
+}
+
+model medicine {
+  ID            Int    @id @default(autoincrement())
+  medicine_name String @db.VarChar(300)
+  active        Int    @default(1)
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model newtest {
+  user String? @db.VarChar(50)
+  pass String? @db.VarChar(50)
+
+  @@ignore
+}
+
+model notification_keys {
+  notification_keys_id Int    @id @default(autoincrement())
+  app_id               String @db.VarChar(500)
+  rest_api_key         String @db.VarChar(500)
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model notificationattempt {
+  notificationattempt_id Int      @id @default(autoincrement())
+  login_id               Int
+  notification_heading   String   @db.VarChar(500)
+  notification_message   String   @db.VarChar(1000)
+  notification_type      String   @db.VarChar(10)
+  CreatedDateTime        DateTime @default(now()) @db.DateTime(0)
+  notification_medium    Int
+  SendDateTime           DateTime @db.DateTime(0)
+  status                 Int
+}
+
+/// This model has been renamed to 'Renamedpackage' during introspection, because the original name 'package' is reserved.
+model Renamedpackage {
+  id           Int     @id @default(autoincrement())
+  package_name String  @db.VarChar(250)
+  created_on   String? @db.VarChar(25)
+  created_by   String? @db.VarChar(25)
+
+  @@map("package")
+}
+
+model package_contains {
+  id         Int     @id @default(autoincrement())
+  package_id String  @db.VarChar(35)
+  test_id    String  @db.VarChar(20)
+  created_on String? @db.VarChar(25)
+  is_active  Int     @default(1)
+}
+
+model package_labs {
+  id            Int     @id @default(autoincrement())
+  package_id    String  @db.VarChar(35)
+  lab_id        String  @db.VarChar(30)
+  package_price String  @db.VarChar(50)
+  created_on    String? @db.VarChar(25)
+  created_by    String? @db.VarChar(25)
+}
+
+model package_queue {
+  id             BigInt  @id @default(autoincrement())
+  medical_num    String? @db.VarChar(25)
+  package_id     String? @db.VarChar(25)
+  lab_id         String? @db.VarChar(25)
+  patient_id     String? @db.VarChar(25)
+  dependent_id   String  @default(dbgenerated("(0)")) @db.VarChar(25)
+  doctor_id      String? @db.VarChar(25)
+  referdate      String? @db.VarChar(25)
+  created_by     String? @db.VarChar(25)
+  created_on     String? @db.VarChar(25)
+  package_status String? @db.VarChar(25)
+}
+
+model patient_dep_details {
+  patient_dep_id    Int       @id @default(autoincrement())
+  firstname         String?   @db.VarChar(100)
+  lastname          String    @db.VarChar(30)
+  gender            String?   @db.VarChar(10)
+  date_of_birth     DateTime  @db.Date
+  age               String?   @db.VarChar(30)
+  address           String?   @db.VarChar(100)
+  city              String?   @db.VarChar(50)
+  pincode           String    @db.VarChar(10)
+  mailid            String?   @db.VarChar(100)
+  phonenum          String?   @db.VarChar(50)
+  alt_phonenum      String    @db.VarChar(50)
+  relationship      String    @default(dbgenerated("(Self)")) @db.VarChar(50)
+  main_pat_id       Int
+  created_on        DateTime? @db.DateTime(0)
+  updated_on        DateTime? @db.Date
+  active            Int?      @default(1)
+  role_id           Int       @default(3)
+  patient_unique_id String    @db.VarChar(20)
+  physician_id      String    @db.VarChar(20)
+  status            String    @default(dbgenerated("(disabled)")) @db.VarChar(20)
+  r_count           Int       @default(0)
+  count             Int
+  prescribe_receipt Int
+}
+
+model patient_doctor_mapping {
+  patient_doctor_mapping_id Int      @id @default(autoincrement())
+  referral_patient_id       Int
+  prev_physician_id         Int
+  new_physician_id          Int
+  patient_unique_id         String   @db.VarChar(100)
+  added_date                DateTime @default(now()) @db.Timestamp(0)
+}
+
+model patient_parameter {
+  parameter_id             Int      @id @default(autoincrement())
+  date_of_birth            DateTime @db.Date
+  known_allergies          String   @db.VarChar(100)
+  previous_medical_history String   @db.VarChar(100)
+  blood_group              Int?
+  diabetic                 String?  @db.VarChar(30)
+  hypertension             String?  @db.VarChar(10)
+  referral_patient_id      Int
+  dependent_id             Int
+  created_on               String?  @db.VarChar(100)
+}
+
+model patientqueue {
+  patientqueue_id   Int      @id @default(autoincrement())
+  BillId            String   @db.VarChar(500)
+  medical_num       String   @db.VarChar(100)
+  firstname         String   @db.VarChar(200)
+  mailid            String   @db.VarChar(200)
+  phonenum          String   @db.VarChar(100)
+  refer_date        DateTime @db.Date
+  patient_unique_id String   @db.VarChar(200)
+  physician_id      Int?
+  phyfname          String?  @db.VarChar(200)
+  referred_id       Int
+  ID                Int
+  billing_id        Int
+  laboratory_id     Int
+  ref_type          String   @db.VarChar(200)
+  lab_test_status   Int
+  billing_status    Int
+  is_sync           Int
+  created_on        DateTime @default(now()) @db.Timestamp(0)
+}
+
+model payment {
+  ID                  Int      @id @default(autoincrement())
+  doctor_id           Int
+  referral_patient_id Int
+  dependent_id        Int
+  Receipt_id          BigInt
+  prescription_num    String   @db.VarChar(30)
+  reg_fee             String   @db.VarChar(1000)
+  con_price           Int
+  med_price           Int
+  inv_price           Int
+  admin_price         Int
+  total_price         Int
+  mode                String   @db.VarChar(10)
+  created_on          DateTime @default(now()) @db.Timestamp(0)
+  updated_on          DateTime @default(now()) @db.Timestamp(0)
+  submitted           Int?
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model phy_admin {
+  phy_admin_id          Int                   @unique(map: "phy_admin_id") @default(autoincrement())
+  phy_admin_name        String?               @db.VarChar(50)
+  phy_admin_phone       String?               @db.VarChar(15)
+  phy_admin_mail_id     String                @id @default(dbgenerated("()")) @db.VarChar(50)
+  phy_admin_password    String?               @db.VarChar(50)
+  created_on            DateTime              @default(now()) @db.Timestamp(0)
+  updated_on            DateTime?             @db.DateTime(0)
+  created_by            String?               @db.VarChar(50)
+  physician_id          Int
+  active                Int                   @default(1)
+  is_visible            Int                   @default(0)
+  role_id               Int                   @default(4)
+  physician_appointment physician_appointment @relation(fields: [physician_id], references: [physician_id], onUpdate: Restrict, map: "phy_admin_ibfk_1")
+
+  @@index([physician_id], map: "physician_id")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model physician_appointment {
+  physician_id              Int         @unique(map: "physician_id") @default(autoincrement())
+  firstname                 String?     @db.VarChar(50)
+  lastname                  String?     @db.VarChar(50)
+  phone_num                 String      @default(dbgenerated("()")) @db.VarChar(50)
+  alternate_phone_number    String      @db.VarChar(50)
+  mail_id                   String      @default(dbgenerated("()")) @db.VarChar(50)
+  pincode                   Int?
+  clinic_name               String?     @db.VarChar(50)
+  clinic_phonenum           String      @db.VarChar(15)
+  clinic_alternate_phonenum String      @db.VarChar(50)
+  clinic_manager            String      @db.VarChar(50)
+  specialization            String?     @db.VarChar(50)
+  address                   String?     @db.VarChar(150)
+  consultation_fee_validity String      @db.VarChar(50)
+  city                      String?     @db.VarChar(50)
+  state                     String?     @db.VarChar(50)
+  active                    Boolean     @default(true)
+  created_by                String?     @db.VarChar(52)
+  created_on                DateTime?   @db.DateTime(0)
+  updated_on                DateTime?   @db.DateTime(0)
+  password                  String?     @db.VarChar(200)
+  role_id                   Int         @default(1)
+  profile_filename          String?     @db.VarChar(200)
+  profile_fullpath          String?     @db.VarChar(300)
+  qualification_id          Int?
+  registration_number       String?     @db.VarChar(200)
+  time_span                 String?     @db.VarChar(35)
+  status                    Int?
+  locality                  String      @db.VarChar(20)
+  created_by_id             Int
+  clinic_module_activated   Int
+  Signature_image           String      @db.VarChar(50)
+  phy_admin                 phy_admin[]
+
+  @@id([mail_id, phone_num])
+}
+
+model physician_clinic_timings {
+  id           Int                                @id @default(autoincrement())
+  physician_id Int
+  theday       String                             @db.VarChar(20)
+  work_type    physician_clinic_timings_work_type @default(dbgenerated("(WORKING_DAY)"))
+  clinic       String?                            @db.VarChar(250)
+  start_time   String?                            @db.VarChar(20)
+  end_time     String?                            @db.VarChar(20)
+  created_time String?                            @db.VarChar(20)
+  updated_time String?                            @db.VarChar(20)
+}
+
+model physician_leaves {
+  id           Int     @id @default(autoincrement())
+  physician_id BigInt
+  dates        String  @db.VarChar(30)
+  start_time   String? @db.VarChar(30)
+  end_time     String? @db.VarChar(30)
+  reason       String? @db.Text
+  created_time String  @db.VarChar(30)
+}
+
+model physician_timings {
+  id           Int                         @id @default(autoincrement())
+  physician_id Int
+  theday       String                      @db.VarChar(20)
+  work_type    physician_timings_work_type @default(dbgenerated("(WORKING_DAY)"))
+  start_time   String?                     @db.VarChar(20)
+  end_time     String?                     @db.VarChar(20)
+  created_time String?                     @db.VarChar(20)
+  updated_time String?                     @db.VarChar(20)
+}
+
+model preferredlabs {
+  preferredlabs_id Int @id @default(autoincrement())
+  laboratory_id    Int
+  physician_id     Int
+  is_active        Int @default(1)
+}
+
+model prescription {
+  prescription_id  Int       @id @default(autoincrement())
+  prescription_num String    @db.VarChar(30)
+  patient_id       Int
+  dependent_id     Int
+  doctor_id        Int?
+  symptoms         String?   @db.VarChar(2000)
+  type             String?   @db.VarChar(2500)
+  med_name         String?   @db.VarChar(1500)
+  mg               String?   @db.VarChar(550)
+  dose             String?   @db.VarChar(2500)
+  num_days         String?   @db.VarChar(1000)
+  instruction      String    @db.VarChar(2500)
+  advice           String?   @db.VarChar(1600)
+  created_on       DateTime? @default(now()) @db.Timestamp(0)
+}
+
+model prescription_medicine {
+  medicine_id     Int     @id @default(autoincrement())
+  type            String? @db.VarChar(1000)
+  med_name        String? @db.VarChar(2000)
+  mg              String  @db.VarChar(2500)
+  dose            String  @db.VarChar(2500)
+  num_days        String  @db.VarChar(1000)
+  instruction     String  @db.VarChar(1000)
+  advice          String  @db.VarChar(1000)
+  prescription_id Int?
+
+  @@index([prescription_id], map: "booking_id")
+}
+
+model qualification {
+  qualification_id   Int    @id @default(autoincrement())
+  qualification_name String @db.VarChar(200)
+  is_active          Int    @default(1)
+}
+
+model qualification_mapping {
+  qualification_mapping_id Int @id @default(autoincrement())
+  qualification_id         Int
+  physician_id             Int
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model referral_confirmation_details {
+  referred_id       Int                                    @unique(map: "referred_id") @default(autoincrement())
+  medical_num       String                                 @id @default(dbgenerated("()")) @db.VarChar(50)
+  relationship      String?                                @db.VarChar(30)
+  referral_pat_id   Int?
+  password          String?                                @db.VarChar(20)
+  patient_unique_id String?                                @db.VarChar(20)
+  attempts          Int?
+  brief_history     String?                                @db.VarChar(500)
+  phy_advice        String?                                @db.VarChar(250)
+  refer_date        DateTime?                              @db.Date
+  created_by        String?                                @db.VarChar(50)
+  login_id          Int
+  created_on        DateTime                               @default(now()) @db.Timestamp(0)
+  ref_type          referral_confirmation_details_ref_type
+  lab_test_status   Int
+  billing_status    Int
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model referral_confirmation_details1 {
+  referred_id       Int                                     @unique(map: "referred_id") @default(autoincrement())
+  medical_num       String                                  @id @default(dbgenerated("()")) @db.VarChar(50)
+  relationship      String?                                 @db.VarChar(30)
+  referral_pat_id   Int?
+  password          String?                                 @db.VarChar(20)
+  patient_unique_id String?                                 @db.VarChar(20)
+  attempts          Int?
+  brief_history     String?                                 @db.VarChar(500)
+  phy_advice        String?                                 @db.VarChar(250)
+  refer_date        DateTime?                               @db.Date
+  created_by        String?                                 @db.VarChar(50)
+  login_id          Int
+  created_on        DateTime                                @default(now()) @db.Timestamp(0)
+  ref_type          referral_confirmation_details1_ref_type
+  lab_test_status   Int                                     @default(0)
+}
+
+model referral_patient_details {
+  referral_patient_id Int       @unique(map: "referral_patient_id") @default(autoincrement())
+  firstname           String?   @db.VarChar(100)
+  lastname            String?   @db.VarChar(30)
+  gender              String?   @db.VarChar(10)
+  date_of_birth       DateTime  @db.Date
+  age                 String?   @db.VarChar(30)
+  address             String?   @db.VarChar(1000)
+  state               String?   @db.VarChar(50)
+  city                String?   @db.VarChar(50)
+  pincode             String?   @db.VarChar(10)
+  mailid              String    @default(dbgenerated("()")) @db.VarChar(100)
+  phonenum            String    @id @default(dbgenerated("()")) @db.VarChar(50)
+  alt_phonenum        String?   @db.VarChar(50)
+  password            String?   @db.VarChar(500)
+  relationship        String    @default(dbgenerated("(1)")) @db.VarChar(50)
+  created_on          String?   @db.VarChar(100)
+  updated_on          DateTime? @db.DateTime(0)
+  active              Int?      @default(1)
+  role_id             Int       @default(3)
+  patient_unique_id   String?   @db.VarChar(20)
+  physician_id        String    @db.VarChar(20)
+  status              String    @default(dbgenerated("(disabled)")) @db.VarChar(20)
+  r_count             Int       @default(0)
+  profile_filename    String?   @db.VarChar(200)
+  profile_fullpath    String?   @db.VarChar(300)
+  main_pat_id         String?   @db.VarChar(11)
+  patient_dep_id      Int?      @default(0)
+  count               Int
+  prescribe_receipt   Int
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model referral_patient_test_details {
+  ID                   Int       @unique(map: "ID") @default(autoincrement())
+  medical_num          String?   @db.VarChar(50)
+  laboratory_tests     String?   @db.VarChar(50)
+  parse_parent_id      Int
+  has_child            Int
+  time                 String?   @db.VarChar(30)
+  date                 DateTime? @db.Date
+  instruction          String?   @db.VarChar(100)
+  patient_unique_id    String?   @db.VarChar(50)
+  physician_id         Int?
+  laboratory_id        Int?
+  dependent_id         Int?
+  main_patient_id      Int?
+  billing_id           Int
+  billing_datetime     DateTime  @db.DateTime(0)
+  sample_collected_id  Int
+  sample_datetime      DateTime  @db.DateTime(0)
+  labapproval_id       Int
+  labapproval_datetime DateTime  @db.DateTime(0)
+  pat_status           Int       @default(0)
+  report_filename      String?   @db.VarChar(200)
+  report_fullpath      String?   @db.VarChar(300)
+  approved_lab_doc_id  Int
+  editor               String    @db.Text
+  created_on           DateTime  @default(now()) @db.Timestamp(0)
+
+  @@index([medical_num], map: "medical_num")
+}
+
+model relationship {
+  rel_id   Int    @unique(map: "rel_id") @default(autoincrement())
+  rel_name String @db.VarChar(50)
+  active   Int    @default(1)
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model report_template {
+  template_id Int    @id @default(autoincrement())
+  header      Int
+  footer      Int
+  print_size  Int
+  lab_id      Int
+  created_on  String @db.VarChar(50)
+  status      String @default(dbgenerated("(ACTIVE)")) @db.VarChar(30)
+}
+
+model sample_results {
+  result_id        Int      @id @default(autoincrement())
+  sample_value     String   @db.Text
+  referral_test_ID Int
+  created_on       DateTime @db.DateTime(0)
+}
+
+model ssconsultation_billing {
+  ssbilling_id  Int     @id @default(autoincrement())
+  ss_id         Int
+  tot_amt       String? @db.VarChar(50)
+  lab_id        Int
+  unique_billid String  @db.VarChar(100)
+  created_on    String? @db.VarChar(100)
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model ssconsultation_log {
+  ssconsultation_log_id Int      @id @default(autoincrement())
+  ssbilling_id          Int
+  amt                   String   @db.VarChar(200)
+  payment_method        Int
+  added_date            DateTime @default(now()) @db.Timestamp(0)
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model state {
+  state_id   Int     @id @default(autoincrement())
+  state_name String  @db.VarChar(30)
+  country_id Int
+  active     Boolean @default(true)
+}
+
+model status_master {
+  status_id Int    @unique(map: "status_id") @default(autoincrement())
+  status    String @db.VarChar(50)
+}
+
+model super_speciality {
+  superspeciality_id   Int       @unique(map: "superspeciality_id") @default(autoincrement())
+  superspeciality_name String?   @db.VarChar(60)
+  created_on           DateTime? @default(now()) @db.Timestamp(0)
+  active               Int       @default(1) @db.TinyInt
+}
+
+model superspeciality_consultation {
+  ss_id               Int       @id @default(autoincrement())
+  laboratory_id       Int
+  referral_patient_id Int
+  patient_dep_id      Int
+  superspeciality_id  Int
+  comments            String    @db.VarChar(300)
+  by_assign           Int
+  to_assign           Int
+  referdate           DateTime  @db.Date
+  refertime           String    @db.VarChar(30)
+  referclinic_name    String    @db.VarChar(300)
+  consultationId      Int
+  consultationDate    DateTime? @default(now()) @db.Timestamp(0)
+  consultationAmount  Int?
+  miscellaneousAmount Int?
+  totalAmount         Int?
+  status              Int       @default(0)
+}
+
+model superspeciality_details {
+  speciality_id       Int       @unique(map: "speciality_id") @default(autoincrement())
+  referral_patient_id Int?
+  patient_dep_id      Int?
+  superspeciality_id  Int?
+  comments            String?   @db.VarChar(250)
+  by_assign           Int?
+  to_assign           Int?
+  referdate           DateTime? @default(dbgenerated("(0000-00-00)")) @db.Date
+  refertime           String?   @db.VarChar(30)
+  referclinic_name    String?   @db.VarChar(250)
+  created_on          DateTime  @default(now()) @db.Timestamp(0)
+  active              Int       @default(1)
+  laboratory_id       Int       @default(0)
+}
+
+model test_report_notes {
+  test_report_notes_id             Int      @id @default(autoincrement())
+  laboratory_tests                 String   @db.VarChar(100)
+  medical_num                      String   @db.VarChar(100)
+  referral_patient_test_details_id Int
+  title                            String?  @db.VarChar(255)
+  description                      String   @db.Text
+  added_date                       DateTime @default(now()) @db.Timestamp(0)
+}
+
+model update_labs {
+  update_labid          Int @id @default(autoincrement())
+  laboratory_id         Int
+  phonenum_doesnt_exist Int
+  print_billing         Int
+  collection_report     Int
+  test_report           Int
+  active                Int @default(1)
+}
+
+model user {
+  role_id    Int      @id @default(autoincrement())
+  name       String   @db.VarChar(50)
+  active     Int      @default(1)
+  created_on DateTime @db.Date
+}
+
+enum lab_timings_work_type {
+  WORKING_DAY
+  HOLI_DAY
+}
+
+enum physician_clinic_timings_work_type {
+  WORKING_DAY
+  HOLI_DAY
+}
+
+enum physician_timings_work_type {
+  WORKING_DAY
+  HOLI_DAY
+}
+
+enum files_status {
+  ACTIVE   @map("1")
+  INACTIVE @map("0")
+}
+
+enum referral_confirmation_details_ref_type {
+  I
+  P
+}
+
+enum referral_confirmation_details1_ref_type {
+  I
+  P
+}
+
+enum laboratory_test_details_status {
+  ACTIVE
+  INACTIVE
+}

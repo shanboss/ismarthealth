@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/app/lib/prisma";
-import crypto from "crypto";
+import { PrismaClient } from '@prisma/client';
+const prisma = new PrismaClient();
+
+import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 
 // Type for the login request body
@@ -12,6 +14,7 @@ interface LoginRequest {
 export async function POST(request: NextRequest) {
   try {
     const body: LoginRequest = await request.json();
+    console.log("Login request body:", body);
 
     // Validate required fields
     if (!body.phone_num || !body.password) {
@@ -26,9 +29,11 @@ export async function POST(request: NextRequest) {
       where: { phone_num: body.phone_num },
     });
 
+    console.log("user=", user);
+
     if (!user) {
       return NextResponse.json(
-        { error: "Invalid credentials" },
+        { error: "Invalid credentials-1" },
         { status: 401 }
       );
     }
@@ -41,15 +46,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verify password using MD5
-    const md5Hash = crypto
-      .createHash("md5")
-      .update(body.password)
-      .digest("hex");
 
-    if (md5Hash !== user.password) {
+
+    // Verify password
+    const passwordMatch = (body.password === user.password)?true:false; //await bcrypt.compare(body.password, user.password);
+
+    if (!passwordMatch) {
       return NextResponse.json(
-        { error: "Invalid credentials" },
+        { error: "Invalid credentials-2" },
         { status: 401 }
       );
     }

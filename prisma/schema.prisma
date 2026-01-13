@@ -110,7 +110,7 @@ model files {
   patient_unique_id String       @db.VarChar(100)
   referral_id       String       @db.VarChar(100)
   uploaded_on       DateTime     @db.DateTime(0)
-  status            files_status @default(dbgenerated("1"))
+  status            files_status @default(dbgenerated("(1)"))
 }
 
 model investigation_details {
@@ -133,7 +133,7 @@ model investigation_test_details {
   investigation_id      Int
   parent_parse_id       Int
   active                Int                   @default(1)
-  investigation_details investigation_details @relation(fields: [investigation_id], references: [investigation_id], onDelete: NoAction, onUpdate: NoAction, map: "investigation_test_details_ibfk_1")
+  investigation_details investigation_details @relation(fields: [investigation_id], references: [investigation_id], onUpdate: Restrict, map: "investigation_test_details_ibfk_1")
 
   @@index([investigation_id], map: "investigation_id")
 }
@@ -164,7 +164,7 @@ model lab_timings {
   id           Int                   @id @default(autoincrement())
   lab_id       Int
   theday       String                @db.VarChar(20)
-  work_type    lab_timings_work_type @default(WORKING_DAY)
+  work_type    lab_timings_work_type @default(dbgenerated("(WORKING_DAY)"))
   start_time   String?               @db.VarChar(20)
   end_time     String?               @db.VarChar(20)
   created_time String?               @db.VarChar(20)
@@ -212,25 +212,25 @@ model laboratory_doctors {
 model laboratory_test_details {
   laboratory_testid     Int                            @id @default(autoincrement())
   laboratory_tests      String                         @db.VarChar(400)
-  code                  String                         @default("") @db.VarChar(50)
+  code                  String                         @default(dbgenerated("()")) @db.VarChar(50)
   display_order         Int?                           @default(0)
-  mnemonics             String?                        @default("") @db.VarChar(100)
-  test_type             String?                        @default("") @db.VarChar(50)
-  sub_department        String?                        @default("") @db.VarChar(100)
-  sample_type           String?                        @default("") @db.VarChar(100)
-  container_type        String?                        @default("") @db.VarChar(100)
-  confidential          String?                        @default("") @db.VarChar(10)
-  methodology           String?                        @default("") @db.VarChar(200)
-  transport_temperature String?                        @default("") @db.VarChar(50)
-  tat                   String?                        @default("") @db.VarChar(50)
-  outsourcing_status    String?                        @default("") @db.VarChar(50)
-  instrument            String?                        @default("") @db.VarChar(200)
+  mnemonics             String?                        @default(dbgenerated("()")) @db.VarChar(100)
+  test_type             String?                        @default(dbgenerated("()")) @db.VarChar(50)
+  sub_department        String?                        @default(dbgenerated("()")) @db.VarChar(100)
+  sample_type           String?                        @default(dbgenerated("()")) @db.VarChar(100)
+  container_type        String?                        @default(dbgenerated("()")) @db.VarChar(100)
+  confidential          String?                        @default(dbgenerated("()")) @db.VarChar(10)
+  methodology           String?                        @default(dbgenerated("()")) @db.VarChar(200)
+  transport_temperature String?                        @default(dbgenerated("()")) @db.VarChar(50)
+  tat                   String?                        @default(dbgenerated("()")) @db.VarChar(50)
+  outsourcing_status    String?                        @default(dbgenerated("()")) @db.VarChar(50)
+  instrument            String?                        @default(dbgenerated("()")) @db.VarChar(200)
   laboratory_id         Int
   test_price            BigInt
   custom_test_name      String                         @db.VarChar(250)
   instruction           String                         @db.VarChar(1000)
   test_method           String                         @db.VarChar(1000)
-  status                laboratory_test_details_status @default(ACTIVE)
+  status                laboratory_test_details_status @default(dbgenerated("(ACTIVE)"))
   status_changed_by     String                         @db.VarChar(50)
   status_changed_on     String                         @db.VarChar(50)
   unit                  String                         @db.VarChar(100)
@@ -240,7 +240,7 @@ model laboratory_test_details {
   interpretation        String?                        @db.Text
   sort_order            Int
   title_required        Int
-  laboratory_details    laboratory_details             @relation(fields: [laboratory_id], references: [laboratory_id], onDelete: NoAction, onUpdate: NoAction, map: "laboratory_test_details_ibfk_1")
+  laboratory_details    laboratory_details             @relation(fields: [laboratory_id], references: [laboratory_id], onUpdate: Restrict, map: "laboratory_test_details_ibfk_1")
 
   @@index([laboratory_id], map: "laboratory_id")
 }
@@ -341,7 +341,7 @@ model package_queue {
   package_id     String? @db.VarChar(25)
   lab_id         String? @db.VarChar(25)
   patient_id     String? @db.VarChar(25)
-  dependent_id   String  @default("0") @db.VarChar(25)
+  dependent_id   String  @default(dbgenerated("(0)")) @db.VarChar(25)
   doctor_id      String? @db.VarChar(25)
   referdate      String? @db.VarChar(25)
   created_by     String? @db.VarChar(25)
@@ -362,7 +362,7 @@ model patient_dep_details {
   mailid            String?   @db.VarChar(100)
   phonenum          String?   @db.VarChar(50)
   alt_phonenum      String    @db.VarChar(50)
-  relationship      String    @default("Self") @db.VarChar(50)
+  relationship      String    @default(dbgenerated("(Self)")) @db.VarChar(50)
   main_pat_id       Int
   created_on        DateTime? @db.DateTime(0)
   updated_on        DateTime? @db.Date
@@ -370,7 +370,7 @@ model patient_dep_details {
   role_id           Int       @default(3)
   patient_unique_id String    @db.VarChar(20)
   physician_id      String    @db.VarChar(20)
-  status            String    @default("disabled") @db.VarChar(20)
+  status            String    @default(dbgenerated("(disabled)")) @db.VarChar(20)
   r_count           Int       @default(0)
   count             Int
   prescribe_receipt Int
@@ -444,7 +444,7 @@ model phy_admin {
   phy_admin_id          Int                   @unique(map: "phy_admin_id") @default(autoincrement())
   phy_admin_name        String?               @db.VarChar(50)
   phy_admin_phone       String?               @db.VarChar(15)
-  phy_admin_mail_id     String                @id @default("") @db.VarChar(50)
+  phy_admin_mail_id     String                @id @default(dbgenerated("()")) @db.VarChar(50)
   phy_admin_password    String?               @db.VarChar(50)
   created_on            DateTime              @default(now()) @db.Timestamp(0)
   updated_on            DateTime?             @db.DateTime(0)
@@ -453,7 +453,7 @@ model phy_admin {
   active                Int                   @default(1)
   is_visible            Int                   @default(0)
   role_id               Int                   @default(4)
-  physician_appointment physician_appointment @relation(fields: [physician_id], references: [physician_id], onDelete: NoAction, onUpdate: NoAction, map: "phy_admin_ibfk_1")
+  physician_appointment physician_appointment @relation(fields: [physician_id], references: [physician_id], onUpdate: Restrict, map: "phy_admin_ibfk_1")
 
   @@index([physician_id], map: "physician_id")
 }
@@ -463,9 +463,9 @@ model physician_appointment {
   physician_id              Int         @unique(map: "physician_id") @default(autoincrement())
   firstname                 String?     @db.VarChar(50)
   lastname                  String?     @db.VarChar(50)
-  phone_num                 String      @default("") @db.VarChar(50)
+  phone_num                 String      @default(dbgenerated("()")) @db.VarChar(50)
   alternate_phone_number    String      @db.VarChar(50)
-  mail_id                   String      @default("") @db.VarChar(50)
+  mail_id                   String      @default(dbgenerated("()")) @db.VarChar(50)
   pincode                   Int?
   clinic_name               String?     @db.VarChar(50)
   clinic_phonenum           String      @db.VarChar(15)
@@ -501,7 +501,7 @@ model physician_clinic_timings {
   id           Int                                @id @default(autoincrement())
   physician_id Int
   theday       String                             @db.VarChar(20)
-  work_type    physician_clinic_timings_work_type @default(WORKING_DAY)
+  work_type    physician_clinic_timings_work_type @default(dbgenerated("(WORKING_DAY)"))
   clinic       String?                            @db.VarChar(250)
   start_time   String?                            @db.VarChar(20)
   end_time     String?                            @db.VarChar(20)
@@ -523,7 +523,7 @@ model physician_timings {
   id           Int                         @id @default(autoincrement())
   physician_id Int
   theday       String                      @db.VarChar(20)
-  work_type    physician_timings_work_type @default(WORKING_DAY)
+  work_type    physician_timings_work_type @default(dbgenerated("(WORKING_DAY)"))
   start_time   String?                     @db.VarChar(20)
   end_time     String?                     @db.VarChar(20)
   created_time String?                     @db.VarChar(20)
@@ -583,7 +583,7 @@ model qualification_mapping {
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model referral_confirmation_details {
   referred_id       Int                                    @unique(map: "referred_id") @default(autoincrement())
-  medical_num       String                                 @id @default("") @db.VarChar(50)
+  medical_num       String                                 @id @default(dbgenerated("()")) @db.VarChar(50)
   relationship      String?                                @db.VarChar(30)
   referral_pat_id   Int?
   password          String?                                @db.VarChar(20)
@@ -603,7 +603,7 @@ model referral_confirmation_details {
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model referral_confirmation_details1 {
   referred_id       Int                                     @unique(map: "referred_id") @default(autoincrement())
-  medical_num       String                                  @id @default("") @db.VarChar(50)
+  medical_num       String                                  @id @default(dbgenerated("()")) @db.VarChar(50)
   relationship      String?                                 @db.VarChar(30)
   referral_pat_id   Int?
   password          String?                                 @db.VarChar(20)
@@ -630,18 +630,18 @@ model referral_patient_details {
   state               String?   @db.VarChar(50)
   city                String?   @db.VarChar(50)
   pincode             String?   @db.VarChar(10)
-  mailid              String    @default("") @db.VarChar(100)
-  phonenum            String    @id @default("") @db.VarChar(50)
+  mailid              String    @default(dbgenerated("()")) @db.VarChar(100)
+  phonenum            String    @id @default(dbgenerated("()")) @db.VarChar(50)
   alt_phonenum        String?   @db.VarChar(50)
   password            String?   @db.VarChar(500)
-  relationship        String    @default("1") @db.VarChar(50)
+  relationship        String    @default(dbgenerated("(1)")) @db.VarChar(50)
   created_on          String?   @db.VarChar(100)
   updated_on          DateTime? @db.DateTime(0)
   active              Int?      @default(1)
   role_id             Int       @default(3)
   patient_unique_id   String?   @db.VarChar(20)
   physician_id        String    @db.VarChar(20)
-  status              String    @default("disabled") @db.VarChar(20)
+  status              String    @default(dbgenerated("(disabled)")) @db.VarChar(20)
   r_count             Int       @default(0)
   profile_filename    String?   @db.VarChar(200)
   profile_fullpath    String?   @db.VarChar(300)
@@ -696,7 +696,7 @@ model report_template {
   print_size  Int
   lab_id      Int
   created_on  String @db.VarChar(50)
-  status      String @default("ACTIVE") @db.VarChar(30)
+  status      String @default(dbgenerated("(ACTIVE)")) @db.VarChar(30)
 }
 
 model sample_results {
@@ -772,7 +772,7 @@ model superspeciality_details {
   comments            String?   @db.VarChar(250)
   by_assign           Int?
   to_assign           Int?
-  referdate           DateTime? @default(dbgenerated("'0000-00-00'")) @db.Date
+  referdate           DateTime? @default(dbgenerated("(0000-00-00)")) @db.Date
   refertime           String?   @db.VarChar(30)
   referclinic_name    String?   @db.VarChar(250)
   created_on          DateTime  @default(now()) @db.Timestamp(0)
