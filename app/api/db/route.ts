@@ -1,10 +1,9 @@
 import { NextResponse } from "next/server";
 import { query } from "@/app/lib/mysql";
-import { PrismaClient } from '@prisma/client'
+import { prisma } from "@/app/lib/prisma";
 
 
 
-const prisma = new PrismaClient();
 
 export async function GET() {
   try {
@@ -66,7 +65,7 @@ export async function POST(request: Request) {
     // Create new physician appointment record
     const newPhysician = await prisma.physician_appointment.create({
       data: {
-        firstName: firstName || null,
+        firstName || null,
         lastName,
         phone,
         email,

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { PrismaClient } from '@prisma/client';
-const prisma = new PrismaClient();
+import crypto from 'crypto';
+import { prisma } from "@/app/lib/prisma";
 
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
@@ -47,9 +47,9 @@ export async function POST(request: NextRequest) {
     }
 
 
-
+    const hashedInput = crypto.createHash('md5').update(body.password).digest('hex');
     // Verify password
-    const passwordMatch = (body.password === user.password)?true:false; //await bcrypt.compare(body.password, user.password);
+    const passwordMatch = (hashedInput === user.password);
 
     if (!passwordMatch) {
       return NextResponse.json(

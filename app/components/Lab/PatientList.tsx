@@ -39,6 +39,8 @@ type Patient = {
   doctor: string;
   referDate: string;
   settled: boolean;
+  medical_num: string;
+  patient_unique_id: string; // Add this field to the Patient type
 };
 
 export default function PatientList() {
@@ -107,8 +109,10 @@ export default function PatientList() {
         year: "numeric",
       }),
       settled: p.billing_status === 1, // Adjust based on your business logic
+      medical_num: p.medical_num,
+      patient_unique_id: p.patient_unique_id
     }));
-  }, [patients]);
+  }, [patients]); 
 
   if (loading) {
     return (
@@ -175,7 +179,7 @@ export default function PatientList() {
                   <td className="px-3 py-2">
                     <button
                       title="Billing"
-                      onClick={() => router.push(`/lab/bill/${p.billNo}`)}
+                      onClick={() => router.push(`/lab/bill/${p.patient_unique_id}/${p.medical_num}`)}
                       className="rounded-md p-1 text-foreground/70 transition hover:bg-foreground/10 hover:text-foreground"
                     >
                       <PencilSquareIcon className="h-5 w-5" />
