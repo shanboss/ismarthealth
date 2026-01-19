@@ -1,56 +1,39 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { PencilIcon, TrashIcon } from "@heroicons/react/24/outline";
+import { PencilIcon, TrashIcon, MagnifyingGlassIcon, ChevronLeftIcon, ChevronRightIcon, UserGroupIcon } from "@heroicons/react/24/outline";
 
-type Doctor = {
-  id: string;
-  name: string;
-  department: string;
-  phoneNo: string;
-  email: string;
+import { Doctor, sampleDoctors, SortField, SortOrder } from "../../config/lab/LabDoctors";
+
+
+const SortIcon = ({ field, sortField, sortOrder }: { 
+  field: SortField; 
+  sortField: SortField | null; 
+  sortOrder: SortOrder 
+}) => {
+  return (
+    <span className="ml-2 inline-flex flex-col text-xs">
+      <span
+        className={`-mb-1 ${
+          sortField === field && sortOrder === "asc"
+            ? "text-gray-800"
+            : "text-gray-300"
+        }`}
+      >
+        ▲
+      </span>
+      <span
+        className={
+          sortField === field && sortOrder === "desc"
+            ? "text-gray-800"
+            : "text-gray-300"
+        }
+      >
+        ▼
+      </span>
+    </span>
+  );
 };
-
-const sampleDoctors: Doctor[] = [
-  {
-    id: "1",
-    name: "LabInvestigation Doc1",
-    department: "LAB INVESTIGATION",
-    phoneNo: "4646546464",
-    email: "LabInvestigationdoc1@inetframe.com",
-  },
-  {
-    id: "2",
-    name: "Ultrasound Doc1",
-    department: "ULTRASOUND/SONOGRAPHY",
-    phoneNo: "4646546464",
-    email: "Ultrasounddoc1@inetframe.com",
-  },
-  {
-    id: "3",
-    name: "Ajit Kumar",
-    department: "MRI",
-    phoneNo: "4646546423",
-    email: "xraydoc1@inetframe.com",
-  },
-  {
-    id: "4",
-    name: "Vijay Sarnobat",
-    department: "LAB INVESTIGATION",
-    phoneNo: "4646546465",
-    email: "LabInvestigationdoc2@inetframe.com",
-  },
-  {
-    id: "5",
-    name: "Sudrashan N",
-    department: "ECHO/TMT",
-    phoneNo: "9620864852",
-    email: "info.info@inetlab.com",
-  },
-];
-
-type SortField = keyof Doctor;
-type SortOrder = "asc" | "desc";
 
 export default function LabDoctors() {
   const [doctors, setDoctors] = useState<Doctor[]>(sampleDoctors);
@@ -119,58 +102,62 @@ export default function LabDoctors() {
     alert("Add Doctor functionality - to be implemented");
   };
 
-  const SortIcon = ({ field }: { field: SortField }) => {
-    return (
-      <span className="ml-1 inline-flex flex-col text-xs">
-        <span
-          className={`-mb-1 ${
-            sortField === field && sortOrder === "asc"
-              ? "text-foreground"
-              : "text-foreground/30"
-          }`}
-        >
-          ▲
-        </span>
-        <span
-          className={
-            sortField === field && sortOrder === "desc"
-              ? "text-foreground"
-              : "text-foreground/30"
-          }
-        >
-          ▼
-        </span>
-      </span>
-    );
-  };
-
   return (
-    <div className="space-y-6">
-      <div className="text-center">
-        <h1 className="text-3xl font-bold tracking-tight text-foreground">
-          <span className="font-bold">Laboratory</span>{" "}
-          <span className="font-normal">Doctors</span>
-        </h1>
+    <div className="space-y-6 p-1">
+      {/* Enhanced Header */}
+      <div className="bg-gradient-to-r from-blue-50/80 to-indigo-50/80 backdrop-blur-xl rounded-2xl border border-blue-100/50 shadow-md p-6">
+        <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+          <div className="flex items-center gap-3">
+            <div className="w-16 h-18 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl shadow-lg flex items-center justify-center">
+              <UserGroupIcon className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-900 via-gray-800 to-blue-900 bg-clip-text text-transparent">
+                Laboratory Doctors
+              </h1>
+              <h6 className="text-sm bg-gradient-to-r from-gray-900 via-gray-800 to-blue-900 bg-clip-text text-transparent">
+                Manage medical professionals in your laboratory.
+              </h6>
+              <p className="text-sm text-gray-600 mt-1 font-medium">
+                Total doctors: <span className="font-bold text-emerald-600">{totalEntries.toLocaleString()}</span>
+              </p>
+            </div>
+          </div>
+
+          {/* Add Doctor Button */}
+          <button
+            type="button"
+            onClick={handleAddDoctor}
+            className="px-6 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-semibold text-sm rounded-xl shadow-md hover:shadow-lg hover:scale-105 transition-all duration-300 focus:outline-none focus:ring-4 focus:ring-emerald-200/50 border border-emerald-400/50 hover:border-emerald-500/50"
+          >
+            + Add Doctor
+          </button>
+        </div>
+
+        {/* Enhanced Search */}
+        <div className="relative">
+          <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <input
+            id="search"
+            type="text"
+            className="w-full pl-10 pr-4 py-2.5 rounded-xl border-2 border-gray-200/60 bg-white/80 backdrop-blur-sm text-sm font-medium placeholder:text-gray-500 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100/50 focus:outline-none shadow-sm hover:shadow-md transition-all duration-300 hover:border-gray-300/80"
+            placeholder="Search by doctor name, department, phone, or email..."
+            value={searchTerm}
+            onChange={(e) => {
+              setSearchTerm(e.target.value);
+              setCurrentPage(1);
+            }}
+          />
+        </div>
       </div>
 
-      <div className="h-1 bg-blue-500"></div>
-
-      <div className="flex justify-end">
-        <button
-          type="button"
-          onClick={handleAddDoctor}
-          className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:opacity-90 active:scale-95"
-        >
-          Add Doctor
-        </button>
-      </div>
-
-      <div className="rounded-lg border border-foreground/10 bg-background shadow-sm">
-        <div className="flex items-center justify-between border-b border-foreground/10 p-4">
+      {/* Enhanced Table Card */}
+      <div className="bg-white/70 backdrop-blur-xl rounded-2xl border border-gray-200/50 shadow-xl overflow-hidden">
+        <div className="flex items-center justify-between border-b border-gray-200/50 p-4 bg-gradient-to-r from-gray-50/50 to-white/50">
           <div className="flex items-center gap-2">
-            <span className="text-sm text-foreground">Show</span>
+            <span className="text-sm text-gray-700 font-medium">Show</span>
             <select
-              className="rounded border border-foreground/20 bg-background px-2 py-1 text-sm text-foreground focus:border-foreground focus:ring-1 focus:ring-foreground"
+              className="rounded-lg border-2 border-gray-200/60 bg-white/80 px-3 py-2 text-sm text-gray-900 font-medium focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100/50 focus:outline-none transition-all duration-300"
               value={entriesPerPage}
               onChange={(e) => {
                 setEntriesPerPage(Number(e.target.value));
@@ -182,99 +169,94 @@ export default function LabDoctors() {
               <option value={25}>25</option>
               <option value={50}>50</option>
             </select>
-            <span className="text-sm text-foreground">entries</span>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <label htmlFor="search" className="text-sm text-foreground">
-              Search:
-            </label>
-            <input
-              id="search"
-              type="text"
-              className="rounded border border-foreground/20 bg-background px-3 py-1 text-sm text-foreground focus:border-foreground focus:ring-1 focus:ring-foreground"
-              value={searchTerm}
-              onChange={(e) => {
-                setSearchTerm(e.target.value);
-                setCurrentPage(1);
-              }}
-            />
+            <span className="text-sm text-gray-700 font-medium">entries</span>
           </div>
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-foreground/10 bg-foreground/5">
+          <table className="min-w-full divide-y divide-gray-200/50">
+            <thead className="bg-gradient-to-r from-gray-200/90 to-gray-300/90 backdrop-blur-sm sticky top-0 z-10 shadow-sm border-b-2 border-gray-300">
+              <tr className="divide-x divide-gray-300/50">
                 <th
-                  className="cursor-pointer px-4 py-3 text-left text-sm font-semibold text-foreground"
+                  className="cursor-pointer px-6 py-3 text-left font-semibold text-gray-800 tracking-wide text-xs uppercase hover:bg-gray-300/50 transition-colors"
                   onClick={() => handleSort("name")}
                 >
-                  Doctor Name
-                  <SortIcon field="name" />
+                  <div className="flex items-center">
+                    Doctor Name
+                    <SortIcon field="name" sortField={sortField} sortOrder={sortOrder} />
+                  </div>
                 </th>
                 <th
-                  className="cursor-pointer px-4 py-3 text-left text-sm font-semibold text-foreground"
+                  className="cursor-pointer px-6 py-3 text-left font-semibold text-gray-800 tracking-wide text-xs uppercase hover:bg-gray-300/50 transition-colors"
                   onClick={() => handleSort("department")}
                 >
-                  Department
-                  <SortIcon field="department" />
+                  <div className="flex items-center">
+                    Department
+                    <SortIcon field="department" sortField={sortField} sortOrder={sortOrder} />
+                  </div>
                 </th>
                 <th
-                  className="cursor-pointer px-4 py-3 text-left text-sm font-semibold text-foreground"
+                  className="cursor-pointer px-6 py-3 text-left font-semibold text-gray-800 tracking-wide text-xs uppercase hover:bg-gray-300/50 transition-colors"
                   onClick={() => handleSort("phoneNo")}
                 >
-                  Phone No
-                  <SortIcon field="phoneNo" />
+                  <div className="flex items-center">
+                    Phone No
+                    <SortIcon field="phoneNo" sortField={sortField} sortOrder={sortOrder} />
+                  </div>
                 </th>
                 <th
-                  className="cursor-pointer px-4 py-3 text-left text-sm font-semibold text-foreground"
+                  className="cursor-pointer px-6 py-3 text-left font-semibold text-gray-800 tracking-wide text-xs uppercase hover:bg-gray-300/50 transition-colors"
                   onClick={() => handleSort("email")}
                 >
-                  Email
-                  <SortIcon field="email" />
+                  <div className="flex items-center">
+                    Email
+                    <SortIcon field="email" sortField={sortField} sortOrder={sortOrder} />
+                  </div>
                 </th>
-                <th
-                  className="cursor-pointer px-4 py-3 text-left text-sm font-semibold text-foreground"
-                  onClick={() => handleSort("id")}
-                >
-                  Action
-                  <SortIcon field="id" />
+                <th className="px-6 py-3 text-center font-semibold text-gray-800 tracking-wide text-xs uppercase">
+                  Actions
                 </th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-gray-100/50">
               {currentDoctors.length > 0 ? (
                 currentDoctors.map((doctor) => (
                   <tr
                     key={doctor.id}
-                    className="border-b border-foreground/10 hover:bg-foreground/5"
+                    className="transition-all duration-300 hover:shadow-md hover:shadow-emerald-100/50 border border-transparent hover:border-gray-200/30 group bg-white/40 hover:bg-emerald-50/80"
                   >
-                    <td className="px-4 py-3 text-sm text-foreground">{doctor.name}</td>
-                    <td className="px-4 py-3 text-sm text-foreground">
-                      {doctor.department}
+                    <td className="px-6 py-3.5 font-semibold text-sm text-gray-900 group-hover:text-gray-950">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-gradient-to-r from-emerald-500 to-teal-600 shadow-sm"></div>
+                        {doctor.name}
+                      </div>
                     </td>
-                    <td className="px-4 py-3 text-sm text-foreground">
-                      {doctor.phoneNo}
+                    <td className="px-6 py-3.5 text-sm text-gray-700 font-medium">
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-gradient-to-r from-gray-100 to-gray-200 text-gray-800 shadow-sm">
+                        {doctor.department}
+                      </span>
                     </td>
-                    <td className="px-4 py-3 text-sm text-foreground">{doctor.email}</td>
-                    <td className="px-4 py-3 text-sm text-foreground">
-                      <div className="flex gap-2">
+                    <td className="px-6 py-3.5 text-sm text-gray-900 font-medium">{doctor.phoneNo}</td>
+                    <td className="px-6 py-3.5 text-sm text-gray-700">{doctor.email}</td>
+                    <td className="px-4 py-3.5 text-center">
+                      <div className="flex gap-2 justify-center">
                         <button
                           type="button"
                           onClick={() => handleEdit(doctor)}
-                          className="rounded bg-green-600 p-2 text-white transition hover:opacity-90"
                           title="Edit"
+                          className="group/btn relative p-2.5 rounded-xl bg-gradient-to-br from-blue-400/90 to-indigo-500/90 text-white shadow-md hover:shadow-lg hover:shadow-blue-400/30 hover:scale-105 transition-all duration-300 focus:outline-none focus:ring-4 focus:ring-blue-200/50 border border-blue-300/50 hover:border-blue-400/50"
                         >
-                          <PencilIcon className="h-4 w-4" />
+                          <PencilIcon className="h-4 w-4 drop-shadow-sm group-hover/btn:rotate-12" />
+                          <div className="absolute inset-0 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl opacity-0 group-hover/btn:opacity-100 transition-opacity duration-300 blur-sm scale-110" />
                         </button>
                         <button
                           type="button"
                           onClick={() => handleDelete(doctor.id)}
-                          className="rounded bg-red-500 p-2 text-white transition hover:opacity-90"
                           title="Delete"
+                          className="group/btn relative p-2.5 rounded-xl bg-gradient-to-br from-red-400/90 to-pink-500/90 text-white shadow-md hover:shadow-lg hover:shadow-red-400/30 hover:scale-105 transition-all duration-300 focus:outline-none focus:ring-4 focus:ring-red-200/50 border border-red-300/50 hover:border-red-400/50"
                         >
-                          <TrashIcon className="h-4 w-4" />
+                          <TrashIcon className="h-4 w-4 drop-shadow-sm group-hover/btn:rotate-12" />
+                          <div className="absolute inset-0 bg-gradient-to-br from-red-500 to-pink-600 rounded-xl opacity-0 group-hover/btn:opacity-100 transition-opacity duration-300 blur-sm scale-110" />
                         </button>
                       </div>
                     </td>
@@ -282,59 +264,57 @@ export default function LabDoctors() {
                 ))
               ) : (
                 <tr>
-                  <td
-                    colSpan={5}
-                    className="px-4 py-8 text-center text-sm text-foreground/60"
-                  >
-                    No doctors found
+                  <td colSpan={5} className="px-12 py-16 text-center">
+                    <div className="flex flex-col items-center gap-3">
+                      <div className="w-20 h-20 bg-gradient-to-br from-gray-100 to-gray-200 rounded-2xl flex items-center justify-center shadow-lg">
+                        <MagnifyingGlassIcon className="w-10 h-10 text-gray-400" />
+                      </div>
+                      <div className="max-w-sm space-y-1.5">
+                        <h3 className="text-xl font-bold text-gray-900">
+                          {searchTerm ? "No matching doctors found" : "No doctors available"}
+                        </h3>
+                        <p className="text-gray-600 text-sm">
+                          {searchTerm
+                            ? `No doctors match "${searchTerm}". Try different search terms.`
+                            : "Doctor list is currently empty. Add a new doctor to get started."}
+                        </p>
+                      </div>
+                    </div>
                   </td>
                 </tr>
               )}
             </tbody>
           </table>
         </div>
-
-        <div className="flex items-center justify-between border-t border-foreground/10 p-4">
-          <div className="text-sm text-foreground">
-            Showing {totalEntries > 0 ? startIndex + 1 : 0} to {endIndex} of{" "}
-            {totalEntries} entries
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-              disabled={currentPage === 1}
-              className="rounded border border-foreground/20 bg-background px-3 py-1 text-sm text-foreground transition hover:bg-foreground/5 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Previous
-            </button>
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-              <button
-                key={page}
-                type="button"
-                onClick={() => setCurrentPage(page)}
-                className={`rounded px-3 py-1 text-sm transition ${
-                  currentPage === page
-                    ? "bg-blue-600 text-white"
-                    : "border border-foreground/20 bg-background text-foreground hover:bg-foreground/5"
-                }`}
-              >
-                {page}
-              </button>
-            ))}
-            <button
-              type="button"
-              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-              disabled={currentPage === totalPages}
-              className="rounded border border-foreground/20 bg-background px-3 py-1 text-sm text-foreground transition hover:bg-foreground/5 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Next
-            </button>
-          </div>
-        </div>
       </div>
+
+      {/* Enhanced Pagination */}
+      {currentDoctors.length > 0 && (
+        <div className="flex items-center justify-center gap-3 p-6 bg-gradient-to-r from-gray-50/80 to-white/80 backdrop-blur-xl rounded-2xl border border-gray-200/50 shadow-lg">
+          <button
+            onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+            disabled={currentPage === 1}
+            className="group relative inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-gray-100 to-gray-200 border-2 border-gray-300/50 text-gray-700 font-semibold text-sm shadow-md hover:shadow-lg hover:from-emerald-500 hover:to-teal-600 hover:text-white hover:border-emerald-400/50 hover:scale-[1.02] transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:from-gray-100 disabled:hover:to-gray-200 disabled:hover:text-gray-700 focus:outline-none focus:ring-4 focus:ring-emerald-200/50"
+          >
+            <ChevronLeftIcon className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform duration-300" />
+            Previous
+          </button>
+
+          <div className="px-6 py-2.5 bg-white/60 backdrop-blur-sm rounded-xl border border-gray-200/50 shadow-md font-semibold text-base text-gray-900 min-w-[140px] text-center">
+            Page <span className="text-emerald-600 font-bold text-lg">{currentPage}</span> of{' '}
+            <span className="text-teal-600 font-bold text-lg">{totalPages}</span>
+          </div>
+
+          <button
+            onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+            disabled={currentPage === totalPages}
+            className="group relative inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-gray-100 to-gray-200 border-2 border-gray-300/50 text-gray-700 font-semibold text-sm shadow-md hover:shadow-lg hover:from-emerald-500 hover:to-teal-600 hover:text-white hover:border-emerald-400/50 hover:scale-[1.02] transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:from-gray-100 disabled:hover:to-gray-200 disabled:hover:text-gray-700 focus:outline-none focus:ring-4 focus:ring-emerald-200/50"
+          >
+            Next
+            <ChevronRightIcon className="w-4 h-4 group-hover:translate-x-0.5 transition-transform duration-300" />
+          </button>
+        </div>
+      )}
     </div>
   );
 }
-

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/app/lib/prisma";
+import { query } from "@/app/lib/mysql"; // Import your raw query helper
+import { ResultSetHeader, RowDataPacket } from "mysql2";
 
 export async function POST(request: Request) {
   try {
@@ -25,7 +26,7 @@ export async function POST(request: Request) {
       status,
     } = body;
 
-    // Validate required fields
+    // 1. Validate required fields
     if (!lastname || !phone_num || !mail_id || !state || !city || !address) {
       return NextResponse.json(
         { ok: false, error: "Missing required fields" },
@@ -33,14 +34,13 @@ export async function POST(request: Request) {
       );
     }
 
-    // Check if physician already exists
-    const existingPhysician = await prisma.physician_appointment.findFirst({
-      where: {
-        OR: [{ mail_id }, { phone_num }],
-      },
-    });
+    // 2. Check if physician already exists by email or phone
+    const existingPhysicians = await query<RowDataPacket[]>(
+      "SELECT id FROM physician_appointment WHERE mail_id = ? OR phone_num = ? LIMIT 1",
+      [mail_id, phone_num]
+    );
 
-    if (existingPhysician) {
+    if (existingPhysicians.length > 0) {
       return NextResponse.json(
         {
           ok: false,
@@ -50,45 +50,62 @@ export async function POST(request: Request) {
       );
     }
 
-    // Create new physician
-    const newPhysician = await prisma.physician_appointment.create({
-      data: {
-        firstname: firstname || null,
-        lastname,
-        phone_num,
-        alternate_phone_number: alternate_phone_number || "",
-        mail_id,
-        specialization: specialization || null,
-        clinic_name: clinic_name || null,
-        clinic_phonenum: clinic_phonenum || "",
-        clinic_alternate_phonenum: clinic_alternate_phonenum || "",
-        clinic_manager: clinic_manager || "",
-        registration_number: registration_number || null,
-        state,
-        city,
-        locality: locality || "",
-        pincode: pincode ? parseInt(pincode) : null,
-        address,
-        status: status ? parseInt(status) : null,
-        active: true,
-        role_id: 1,
-        created_by_id: 0,
-        clinic_module_activated: 0,
-        Signature_image: "",
-        consultation_fee_validity: "",
-      },
-    });
+    // 3. Insert new physician record
+    const insertSql = `
+      INSERT INTO physician_appointment (
+        firstname, lastname, phone_num, alternate_phone_number, mail_id,
+        specialization, clinic_name, clinic_phonenum, clinic_alternate_phonenum,
+        clinic_manager, registration_number, state, city, locality,
+        pincode, address, status, active, role_id, created_by_id,
+        clinic_module_activated, Signature_image, consultation_fee_validity
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `;
 
+    const params = [
+      firstname || null,
+      lastname,
+      phone_num,
+      alternate_phone_number || "",
+      mail_id,
+      specialization || null,
+      clinic_name || null,
+      clinic_phonenum || "",
+      clinic_alternate_phonenum || "",
+      clinic_manager || "",
+      registration_number || null,
+      state,
+      city,
+      locality || "",
+      pincode ? parseInt(pincode) : null,
+      address,
+      status ? parseInt(status) : null,
+      1, // active (true/1)
+      1, // role_id
+      0, // created_by_id
+      0, // clinic_module_activated
+      "", // Signature_image
+      "" // consultation_fee_validity
+    ];
+
+    const result = await query<ResultSetHeader>(insertSql, params);
+
+    // 4. Return success response with the new ID
     return NextResponse.json(
       {
         ok: true,
         message: "Physician registered successfully",
-        data: newPhysician,
+        data: {
+          id: result.insertId,
+          ...body,
+          active: 1,
+          role_id: 1
+        },
       },
       { status: 201 }
     );
   } catch (error) {
-    console.error("Registration error:", error);
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    console.error("Registration error:", errorMessage);
     return NextResponse.json(
       { ok: false, error: "Failed to register physician" },
       { status: 500 }

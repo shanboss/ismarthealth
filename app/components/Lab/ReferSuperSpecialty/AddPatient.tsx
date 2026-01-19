@@ -1,15 +1,7 @@
 "use client";
 
 import { useState } from "react";
-
-type AddPatientForm = {
-  firstName: string;
-  lastName: string;
-  gender: "male" | "female" | "others";
-  email?: string;
-  phone: string;
-  age?: string;
-};
+import { AddPatientForm } from "../../../config/lab/ReferSuperSpecialty/AddPatient";
 
 export default function AddPatient({
   onPrev,
@@ -89,7 +81,7 @@ export default function AddPatient({
           <select
             className="mt-1 w-full rounded-md border border-foreground/20 bg-background px-3 py-2"
             value={form.gender}
-            onChange={(e) => update("gender", e.target.value as any)}
+            onChange={(e) => update("gender", e.target.value as AddPatientForm["gender"])}
           >
             <option value="male">Male</option>
             <option value="female">Female</option>

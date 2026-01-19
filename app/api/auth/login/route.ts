@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from 'crypto';
-import { prisma } from "@/app/lib/prisma";
-
-import bcrypt from "bcrypt";
+import { query } from "@/app/lib/mysql"; // Using the helper from your new mysql.ts
 import jwt from "jsonwebtoken";
+import { RowDataPacket } from 'mysql2/promise';
 
 // Type for the login request body
 interface LoginRequest {
@@ -11,12 +10,38 @@ interface LoginRequest {
   password: string;
 }
 
+export interface UserRow extends RowDataPacket {
+  login_id: number;
+  firstname: string | null;
+  physician_id: number | null;
+  laboratory_id: number | null;
+  patient_id: number | null;
+  phy_admin_id: number | null;
+  username: string;
+  password: string;
+  phone_num: string;
+  state: string | null;
+  city: string | null;
+  count: number;
+  role_id: number;
+  active: number; // usually 0 or 1 in MySQL
+  last_login: Date | string | null;
+  created_on: Date | string;
+  updated_on: Date | string;
+  otp: string | null;
+  device_id: string | null;
+  player_id: string | null;
+}
+
+interface RoleRow extends RowDataPacket {
+  name: string;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body: LoginRequest = await request.json();
-    console.log("Login request body:", body);
 
-    // Validate required fields
+    // 1. Validate required fields
     if (!body.phone_num || !body.password) {
       return NextResponse.json(
         { error: "Missing required fields: phone_num, password" },
@@ -24,21 +49,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Find user by phone number
-    const user = await prisma.login_details.findUnique({
-      where: { phone_num: body.phone_num },
-    });
+    // 2. Find user by phone number using raw SQL
+   const users = await query<UserRow>("SELECT * FROM login_details WHERE phone_num = ? LIMIT 1",[body.phone_num])
 
-    console.log("user=", user);
-
+   if (users.length > 0) {
+    const user = users[0];
     if (!user) {
       return NextResponse.json(
         { error: "Invalid credentials-1" },
         { status: 401 }
       );
     }
-
-    // Check if user is active
+    console.log(`Welcome back, ${user.firstname ?? user.username}`);
+    
+    // 3. Check if user is active
     if (user.active !== 1) {
       return NextResponse.json(
         { error: "Account is deactivated" },
@@ -46,9 +70,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-
+        // 4. Verify password (MD5 as per your original logic)
     const hashedInput = crypto.createHash('md5').update(body.password).digest('hex');
-    // Verify password
     const passwordMatch = (hashedInput === user.password);
 
     if (!passwordMatch) {
@@ -58,27 +81,27 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Update last login time
-    await prisma.login_details.update({
-      where: { phone_num: body.phone_num },
-      data: {
-        last_login: new Date(),
-        count: user.count + 1,
-      },
-    });
+    // 5. Update last login time and count
+    await query(
+      "UPDATE login_details SET last_login = NOW(), count = count + 1 WHERE phone_num = ?",
+      [body.phone_num]
+    );
 
-    // Get role name
-    const role = await prisma.user.findUnique({
-      where: { role_id: user.role_id },
-    });
+    // 6. Get role name from the user/role table
+ 
+    const roles = await query<RoleRow>(
+      "SELECT name FROM user WHERE role_id = ? LIMIT 1",
+      [user.role_id]
+    );
+    const roleName = roles[0]?.name || "Unknown";
 
-    // Generate JWT token
+    // 7. Generate JWT token
     const token = jwt.sign(
       {
         login_id: user.login_id,
         phone_num: user.phone_num,
         role_id: user.role_id,
-        role_name: role?.name || "Unknown",
+        role_name: roleName,
         laboratory_id: user.laboratory_id,
         physician_id: user.physician_id,
       },
@@ -86,7 +109,7 @@ export async function POST(request: NextRequest) {
       { expiresIn: "7d" }
     );
 
-    // Create response with user data
+    // 8. Create response with user data
     const response = NextResponse.json({
       success: true,
       message: "Login successful",
@@ -96,19 +119,19 @@ export async function POST(request: NextRequest) {
         username: user.username,
         phone_num: user.phone_num,
         role_id: user.role_id,
-        role_name: role?.name || "Unknown",
+        role_name: roleName,
         physician_id: user.physician_id,
         laboratory_id: user.laboratory_id,
         patient_id: user.patient_id,
         phy_admin_id: user.phy_admin_id,
         state: user.state,
         city: user.city,
-        last_login: user.last_login,
+        last_login: new Date(), // Reflecting the update just made
       },
       token,
     });
 
-    // Set HTTP-only cookie with the token
+    // 9. Set HTTP-only cookie
     response.cookies.set("auth-token", token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
@@ -118,6 +141,18 @@ export async function POST(request: NextRequest) {
     });
 
     return response;
+
+  } else {
+    console.log("No user found with that phone number.");
+  }
+
+    
+   
+
+    
+
+
+
   } catch (error) {
     console.error("Login error:", error);
     return NextResponse.json(

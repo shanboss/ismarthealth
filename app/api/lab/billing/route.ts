@@ -1,8 +1,26 @@
-// app/api/lab/billing/route.ts
-
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/app/lib/prisma";
+import { query } from "@/app/lib/mysql";
 import { verifyAuthFromRequest, ROLES, hasRole } from "@/app/lib/auth";
+import { RowDataPacket } from "mysql2";
+
+// Define interfaces for our database rows to maintain type safety
+interface PatientQueueRow extends RowDataPacket {
+  BillId: string;
+  created_on: Date;
+  firstname: string;
+  phonenum: string;
+  patient_unique_id: string;
+  laboratory_id: number;
+}
+
+interface TestRecordRow extends RowDataPacket {
+  parse_parent_id: number;
+  laboratory_id: number;
+  laboratory_tests: string;
+  date: Date | null;
+  time: string | null;
+  instruction: string | null;
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -19,60 +37,54 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Missing parameters" }, { status: 400 });
     }
 
-    const patientData = await prisma.patientqueue.findFirst({
-      where: {
-        medical_num: medicalNum,
-        patient_unique_id: patientId,
-      },
-    });
+    // 1. Fetch patient data
+    const patientRows = await query<PatientQueueRow[]>(
+      "SELECT * FROM patientqueue WHERE medical_num = ? AND patient_unique_id = ? LIMIT 1",
+      [medicalNum, patientId]
+    );
+    const patientData = patientRows[0];
 
     if (!patientData) {
       return NextResponse.json({ error: "Patient not found" }, { status: 404 });
     }
 
-    const patientDepDetails = await prisma.referral_patient_details.findFirst({
-      where: { patient_unique_id: patientData.patient_unique_id },
-    });
+    // 2. Fetch referral patient details
+    const patientDepRows = await query<RowDataPacket[]>(
+      "SELECT firstname, lastname, gender, age FROM referral_patient_details WHERE patient_unique_id = ? LIMIT 1",
+      [patientData.patient_unique_id]
+    );
+    const patientDepDetails = patientDepRows[0];
 
-    // 1. Fetch the test records for this patient
-const testRecords = await prisma.referral_patient_test_details.findMany({
-      where: { 
-        medical_num: medicalNum,
-        // Optional: filter out records that haven't been processed yet if needed
-      },
-      select: {
-        parse_parent_id: true,
-        laboratory_id: true,
-        laboratory_tests: true,
-        date: true,
-        time: true,
-        instruction: true,
-        // Do NOT include sample_datetime or labapproval_datetime here
-      }
-    });
+    // 3. Fetch test records
+    const testRecords = await query<TestRecordRow[]>(
+      "SELECT parse_parent_id, laboratory_id, laboratory_tests, date, time, instruction FROM referral_patient_test_details WHERE medical_num = ?",
+      [medicalNum]
+    );
 
-    // 2. Resolve details for each test
-
-
+    // 4. Resolve details for each test
     const patientTestDetails = await Promise.all(
       testRecords.map(async (record) => {
-        const testInfo = await prisma.investigation_test_details.findUnique({
-          where: { parse_id: record.parse_parent_id },
-          select: { test_name: true }
-        });
+        // Fetch test name
+        const testInfoRows = await query<RowDataPacket[]>(
+          "SELECT test_name FROM investigation_test_details WHERE parse_id = ? LIMIT 1",
+          [record.parse_parent_id]
+        );
 
-        const labInfo = await prisma.laboratory_test_details.findFirst({
-          where: { 
-            laboratory_id: record.laboratory_id || 0,
-            laboratory_tests: record.laboratory_tests || "" 
-          },
-          select: { instruction: true, test_price: true }
-        });
+        // Fetch lab-specific instructions and price
+        const labInfoRows = await query<RowDataPacket[]>(
+          "SELECT instruction, test_price FROM laboratory_test_details WHERE laboratory_id = ? AND laboratory_tests = ? LIMIT 1",
+          [record.laboratory_id || 0, record.laboratory_tests || ""]
+        );
 
-        const billingInfo = await prisma.referral_confirmation_details.findUnique({
-          where: { medical_num: medicalNum },
-          select: { billing_status: true }
-        });
+        // Fetch billing status
+        const billingInfoRows = await query<RowDataPacket[]>(
+          "SELECT billing_status FROM referral_confirmation_details WHERE medical_num = ? LIMIT 1",
+          [medicalNum]
+        );
+
+        const testInfo = testInfoRows[0];
+        const labInfo = labInfoRows[0];
+        const billingInfo = billingInfoRows[0];
 
         return {
           testName: testInfo?.test_name || record.laboratory_tests || "Unknown Test",
@@ -85,17 +97,16 @@ const testRecords = await prisma.referral_patient_test_details.findMany({
       })
     );
 
-    const labDetails = await prisma.laboratory_details.findFirst({
-      where: { laboratory_id: patientData.laboratory_id },
-      select: {
-        laboratory_name: true,
-        laboratory_address: true,
-        lab_city: true,
-        lab_state: true,
-        laboratory_phone: true,
-        laboratory_email: true,
-      }
-    });
+    // 5. Fetch laboratory details
+    const labDetailsRows = await query<RowDataPacket[]>(
+      `SELECT 
+        laboratory_name, laboratory_address, lab_city, lab_state, 
+        laboratory_phone, laboratory_email 
+       FROM laboratory_details 
+       WHERE laboratory_id = ? LIMIT 1`,
+      [patientData.laboratory_id]
+    );
+    const labDetails = labDetailsRows[0];
 
     return NextResponse.json({
       success: true,
