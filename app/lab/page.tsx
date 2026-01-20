@@ -33,7 +33,7 @@ export default function LabDashboardPage() {
       <main className="flex-1 space-y-6 p-4 md:p-6">
         {tab === "patient-queue" ? (
           <>
-            <header className="flex items-center justify-between">
+            {/* <header className="flex items-center justify-between">
               <div>
                 <h1 className="text-2xl font-semibold tracking-tight">
                   Patient List
@@ -42,21 +42,21 @@ export default function LabDashboardPage() {
                   Manage today's patient queue and actions.
                 </p>
               </div>
-            </header>
+            </header> */}
             <PatientList />
           </>
         ) : tab === "package-queue" ? (
           <>
-            <header className="flex items-center justify-between">
-              <div>
-                <h1 className="text-2xl font-semibold tracking-tight">
-                  Package Details
-                </h1>
-                <p className="text-sm text-foreground/70">
-                  View and manage package queue.
-                </p>
-              </div>
-            </header>
+              {/* <header className="flex items-center justify-between">
+                <div>
+                  <h1 className="text-2xl font-semibold tracking-tight">
+                    Package Details
+                  </h1>
+                  <p className="text-sm text-foreground/70">
+                    View and manage package queue.
+                  </p>
+                </div>
+              </header> */}
             <PackageList />
           </>
         ) : tab === "lab-tests" ? (
@@ -117,7 +117,7 @@ export default function LabDashboardPage() {
           </>
         ) : tab === "super-speciality-queue" ? (
           <>
-            <header className="flex items-center justify-between">
+            {/* <header className="flex items-center justify-between">
               <div>
                 <h1 className="text-2xl font-semibold tracking-tight">
                   Super Speciality Consultation
@@ -126,7 +126,7 @@ export default function LabDashboardPage() {
                   View and manage super speciality consultations.
                 </p>
               </div>
-            </header>
+            </header> */}
             <SuperSpecialtyQueue />
           </>
         ) : tab === "refer-super-specialty" ? (

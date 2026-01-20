@@ -7,36 +7,8 @@ import AddPatient from "./AddPatient";
 import DoctorDetails from "./DoctorDetails";
 import TestsSelection from "./TestsSelection";
 import Confirm from "./Confirm";
+import { PatientQueueResult, SelectedTest } from "../../../config/lab/AllLabTest/Wizard";
 
-type PatientQueueResult = {
-  patientqueue_id: number;
-  BillId: string;
-  medical_num: string;
-  firstname: string;
-  mailid: string;
-  phonenum: string;
-  refer_date: Date;
-  patient_unique_id: string;
-  physician_id: number | null;
-  phyfname: string | null;
-  referred_id: number;
-  ID: number;
-  billing_id: number;
-  laboratory_id: number;
-  ref_type: string;
-  lab_test_status: number;
-  billing_status: number;
-  is_sync: number;
-  created_on: Date;
-};
-
-type SelectedTest = {
-  id: number;
-  name: string;
-  department: string;
-  price: string;
-  code: string;
-};
 
 export default function AddLabTestWizard() {
   const [active, setActive] = useState<StepId>("search");
@@ -129,7 +101,10 @@ export default function AddLabTestWizard() {
         />
       ) : (
         <Confirm
-          summary={data}
+          summary={{
+            ...data,
+            tests: data.tests?.map((test) => test.name),
+          }}
           onPrev={() => next("tests")}
           onFinish={() => {
             // For now, just reset the wizard

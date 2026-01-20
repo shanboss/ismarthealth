@@ -3,6 +3,12 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
+import { 
+  Phone, 
+  Lock, 
+  AlertCircle,
+  Loader2 
+} from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -29,15 +35,11 @@ export default function LoginPage() {
       const data = await response.json();
 
       if (!response.ok) {
-        setError(data.error || "Login failed");
+        setError(data.error || "Login failed. Please check your credentials.");
         setLoading(false);
         return;
       }
 
-      // Login successful - redirect based on role
-      console.log("Login successful, redirecting...", data.user);
-
-      // Store user info in localStorage for client-side access
       localStorage.setItem("user", JSON.stringify(data.user));
 
       const redirect = searchParams.get("redirect");
@@ -46,127 +48,173 @@ export default function LoginPage() {
       if (redirect) {
         redirectPath = redirect;
       } else {
-        // Default redirects based on role
         switch (data.user.role_id) {
           case 1: // Physician
           case 4: // Phy_Admin
             redirectPath = "/physician?tab=dashboard";
             break;
-          case 2: // Laboratory
-          case 6: // Billing
-          case 7: // Samples
-          case 8: // Lab_Reports
+          case 2: case 6: case 7: case 8: // Lab-related roles
             redirectPath = "/lab";
             break;
           case 3: // Patient
             redirectPath = "/profile";
             break;
           case 5: // Super_Admin
-            redirectPath = "/lab"; // or admin dashboard
+            redirectPath = "/lab";
             break;
           default:
             redirectPath = "/";
         }
       }
 
-      console.log("Redirecting to:", redirectPath);
-
-      // Use window.location for a hard navigation (more reliable)
       window.location.href = redirectPath;
     } catch (err) {
       console.error("Login error:", err);
-      setError("An error occurred during login. Please try again.");
+      setError("Something went wrong. Please try again.");
       setLoading(false);
     }
   }
 
   return (
-    <div className="mx-auto w-full max-w-md">
-      <div className="mb-8 flex items-center justify-center">
-        <span className="text-2xl font-semibold tracking-tight text-foreground">
-          iSmartHealth
-        </span>
-      </div>
-      <div className="rounded-lg border border-foreground/10 bg-background p-6 shadow-sm">
-        <h1 className="text-xl font-semibold tracking-tight text-foreground">
-          Sign in
-        </h1>
-        <form className="mt-6 grid gap-4" onSubmit={handleSubmit}>
-          <div>
-            <label
-              htmlFor="phone_num"
-              className="block text-sm font-medium text-foreground"
-            >
-              Phone Number
-            </label>
-            <input
-              id="phone_num"
-              name="phone_num"
-              type="text"
-              required
-              disabled={loading}
-              className="mt-1 w-full rounded-md border border-foreground/20 bg-background px-3 py-2 text-foreground placeholder:text-foreground/40 focus:border-foreground focus:ring-1 focus:ring-foreground disabled:opacity-50"
-              placeholder="1234567890"
-            />
-          </div>
-          <div>
-            <label
-              htmlFor="password"
-              className="block text-sm font-medium text-foreground"
-            >
-              Password
-            </label>
-            <input
-              id="password"
-              name="password"
-              type="password"
-              required
-              disabled={loading}
-              className="mt-1 w-full rounded-md border border-foreground/20 bg-background px-3 py-2 text-foreground placeholder:text-foreground/40 focus:border-foreground focus:ring-1 focus:ring-foreground disabled:opacity-50"
-              placeholder="••••••••"
-            />
-          </div>
-          {error ? (
-            <p className="text-sm text-red-600" role="alert">
-              {error}
-            </p>
-          ) : null}
-          <div className="flex items-center justify-between text-sm">
-            <label className="inline-flex items-center gap-2 text-foreground">
-              <input
-                type="checkbox"
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 px-4 py-12 sm:px-6 lg:px-8">
+      <div className="w-full max-w-md space-y-8">
+        {/* Logo / Brand */}
+        <div className="text-center">
+          <h1 className="text-3xl font-bold tracking-tight text-gray-900">
+            iSmartHealth
+          </h1>
+          <p className="mt-2 text-sm text-gray-600">
+            Secure access to your healthcare dashboard
+          </p>
+        </div>
+
+        {/* Card */}
+        <div className="bg-white shadow-xl shadow-slate-200/50 rounded-2xl border border-slate-200/60 overflow-hidden">
+          <div className="px-8 py-10 sm:px-10">
+            <h2 className="text-2xl font-semibold text-gray-900 text-center mb-8">
+              Sign In
+            </h2>
+
+            <form className="space-y-6" onSubmit={handleSubmit}>
+              {/* Phone Number */}
+              <div>
+                <label 
+                  htmlFor="phone_num" 
+                  className="block text-sm font-medium text-gray-700 mb-1.5"
+                >
+                  Phone Number
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                    <Phone className="h-5 w-5 text-gray-400" />
+                  </div>
+                  <input
+                    id="phone_num"
+                    name="phone_num"
+                    type="tel"
+                    autoComplete="tel"
+                    required
+                    disabled={loading}
+                    className="block w-full pl-11 pr-4 py-3 border border-gray-300 rounded-lg text-gray-900 
+                             placeholder-gray-400 focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500
+                             disabled:opacity-60 disabled:bg-gray-50 transition-all duration-200"
+                    placeholder="Enter your phone number"
+                  />
+                </div>
+              </div>
+
+              {/* Password */}
+              <div>
+                <label 
+                  htmlFor="password" 
+                  className="block text-sm font-medium text-gray-700 mb-1.5"
+                >
+                  Password
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                    <Lock className="h-5 w-5 text-gray-400" />
+                  </div>
+                  <input
+                    id="password"
+                    name="password"
+                    type="password"
+                    autoComplete="current-password"
+                    required
+                    disabled={loading}
+                    className="block w-full pl-11 pr-4 py-3 border border-gray-300 rounded-lg text-gray-900 
+                             placeholder-gray-400 focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500
+                             disabled:opacity-60 disabled:bg-gray-50 transition-all duration-200"
+                    placeholder="••••••••"
+                  />
+                </div>
+              </div>
+
+              {/* Error Message */}
+              {error && (
+                <div className="rounded-lg bg-red-50 border border-red-200 p-3 flex items-center gap-2 text-sm text-red-700">
+                  <AlertCircle className="h-5 w-5 flex-shrink-0" />
+                  <span>{error}</span>
+                </div>
+              )}
+
+              {/* Remember & Forgot */}
+              <div className="flex items-center justify-between text-sm">
+                <label className="flex items-center gap-2 text-gray-600 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    disabled={loading}
+                    className="h-4 w-4 rounded border-gray-300 text-indigo-600 
+                             focus:ring-indigo-500 disabled:opacity-50"
+                  />
+                  <span>Remember me</span>
+                </label>
+
+                <Link 
+                  href="/forgot-password" 
+                  className="text-indigo-600 hover:text-indigo-800 font-medium transition-colors"
+                >
+                  Forgot password?
+                </Link>
+              </div>
+
+              {/* Submit Button */}
+              <button
+                type="submit"
                 disabled={loading}
-                className="h-4 w-4 rounded border-foreground/30 bg-background text-foreground focus:ring-foreground disabled:opacity-50"
-              />
-              Remember me
-            </label>
-            <a href="#" className="text-foreground hover:underline">
-              Forgot password?
-            </a>
+                className="w-full flex items-center justify-center gap-2 py-3 px-4 
+                         bg-indigo-600 hover:bg-indigo-700 
+                         focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2
+                         text-white font-medium rounded-lg shadow-md shadow-indigo-200/50
+                         disabled:opacity-60 disabled:shadow-none transition-all duration-200"
+              >
+                {loading && <Loader2 className="h-5 w-5 animate-spin" />}
+                {loading ? "Signing in..." : "Sign In"}
+              </button>
+            </form>
+
+            {/* Sign Up Link */}
+            <p className="mt-8 text-center text-sm text-gray-600">
+              Don&apos;t have an account?{" "}
+              <Link 
+                href="/signup" 
+                className="font-medium text-indigo-600 hover:text-indigo-800 transition-colors"
+              >
+                Create account
+              </Link>
+            </p>
+
+            {/* Test Credentials */}
+            <div className="mt-8 pt-6 border-t border-gray-100">
+              <div className="rounded-lg bg-blue-50/70 border border-blue-100 p-4 text-xs text-blue-800">
+                <p className="font-semibold mb-2 text-blue-900">Test Accounts (Development):</p>
+                <p className="font-mono">Lab: 1234567890 / LabPassword123!</p>
+                <p className="mt-1.5 text-blue-700 text-xs">
+                  Use your registered phone number in production
+                </p>
+              </div>
+            </div>
           </div>
-          <button
-            type="submit"
-            disabled={loading}
-            className="mt-2 inline-flex items-center justify-center rounded-md bg-foreground px-4 py-2 text-sm font-medium text-background transition hover:opacity-80 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {loading ? "Logging in..." : "Login"}
-          </button>
-        </form>
-        <p className="mt-4 text-center text-sm text-foreground/70">
-          New here?{" "}
-          <Link href="/#new-user" className="text-foreground hover:underline">
-            Create an account
-          </Link>
-        </p>
-        <div className="mt-4 rounded-md border border-blue-200 bg-blue-50 p-3 text-xs text-blue-900">
-          <p className="font-semibold mb-1">Test Credentials:</p>
-          <p>
-            Lab: <span className="font-mono">1234567890</span> /{" "}
-            <span className="font-mono">LabPassword123!</span>
-          </p>
-          <p className="mt-1 text-blue-700">
-            Use the phone number you created during registration
-          </p>
         </div>
       </div>
     </div>
