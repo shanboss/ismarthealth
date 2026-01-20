@@ -3,7 +3,8 @@
 
 import React, { useEffect, useState, useRef } from 'react';
 import { format } from 'date-fns';
-import { Download, Printer } from 'lucide-react';
+import { Download, Printer, Plus } from 'lucide-react';
+import Link from 'next/link';
 
 interface labInfo {
   laboratory_name: string;
@@ -51,7 +52,7 @@ interface BillingData {
   labInfo: labInfo;
 }
 
-export default function BillingPage({ params }: BillingPageProps) {
+export default function SampleDetailsPage({ params }: BillingPageProps) {
   const [patientData, setPatientData] = useState<BillingData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -61,15 +62,7 @@ export default function BillingPage({ params }: BillingPageProps) {
   } | null>(null);
   const billContentRef = useRef<HTMLDivElement>(null);
 
-  // Billing state management
-  const [isApproved, setIsApproved] = useState(false);
-  const [showBillingControls, setShowBillingControls] = useState(false);
-  const [discountEnabled, setDiscountEnabled] = useState(false);
-  const [discountValue, setDiscountValue] = useState<string>('');
-  const [advancePayment, setAdvancePayment] = useState<string>('');
-  const [savingChanges, setSavingChanges] = useState(false);
-  const [saveMessage, setSaveMessage] = useState<{ type: string; text: string } | null>(null);
-
+  // Resolve URL parameters
   useEffect(() => {
     const resolveParams = async () => {
       const resolved = await params;
@@ -78,6 +71,7 @@ export default function BillingPage({ params }: BillingPageProps) {
     resolveParams();
   }, [params]);
 
+  // Fetch data from the API
   useEffect(() => {
     if (!resolvedParams) return;
 
@@ -104,83 +98,6 @@ export default function BillingPage({ params }: BillingPageProps) {
     fetchBillingData();
   }, [resolvedParams]);
 
-  // Calculations
-  const totalAmount = patientData?.patientTestDetails.reduce((sum, test) => sum + test.price, 0) || 0;
-  const discountAmount = discountEnabled ? (totalAmount * (parseFloat(discountValue) || 0)) / 100 : 0;
-  const netAmount = totalAmount - discountAmount;
-  const advancePaymentNum = parseFloat(advancePayment) || 0;
-  const balanceAmount = Math.max(0, netAmount - advancePaymentNum);
-
-  const handleDiscountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    if (value === '' || /^\d+(\.\d{0,2})?$/.test(value)) {
-      setDiscountValue(value);
-    }
-  };
-
-  const handleAdvancePaymentChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    if (value === '' || /^\d+(\.\d{0,2})?$/.test(value)) {
-      const numValue = parseFloat(value) || 0;
-      if (numValue <= netAmount) {
-        setAdvancePayment(value);
-      } else if (value !== '') {
-        setAdvancePayment('');
-      }
-    }
-  };
-
-  const handleApproveAll = () => {
-    setIsApproved(true);
-    setShowBillingControls(true);
-  };
-
-  const handleBillingApproved = () => {
-    setIsApproved(false);
-    setShowBillingControls(false);
-    setDiscountEnabled(false);
-    setDiscountValue('');
-    setAdvancePayment('');
-  };
-
-  const handleSaveChanges = async () => {
-    setSavingChanges(true);
-    setSaveMessage(null);
-
-    try {
-      const payload = {
-        patient_id: resolvedParams?.patient_id,
-        medical_num: resolvedParams?.medical_num,
-        total_amount: totalAmount,
-        discount_enabled: discountEnabled,
-        discount_percentage: discountEnabled ? parseFloat(discountValue) || 0 : 0,
-        discount_amount: discountAmount,
-        net_amount: netAmount,
-        advance_payment: advancePaymentNum,
-        balance_amount: balanceAmount,
-        billing_status: 'Approved'
-      };
-
-      const response = await fetch('/api/lab/billing/save', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-
-      if (!response.ok) throw new Error('Failed to save changes');
-
-      setSaveMessage({ type: 'success', text: 'Billing changes saved successfully!' });
-      setTimeout(() => handleBillingApproved(), 2000);
-    } catch (err) {
-      setSaveMessage({
-        type: 'error',
-        text: err instanceof Error ? err.message : 'Failed to save changes'
-      });
-    } finally {
-      setSavingChanges(false);
-    }
-  };
-
   const handleDownloadPDF = async () => {
     if (!billContentRef.current) return;
 
@@ -199,7 +116,7 @@ export default function BillingPage({ params }: BillingPageProps) {
       html2pdf()
         .set({
           margin: 10,
-          filename: `billing_${resolvedParams?.patient_id}_${resolvedParams?.medical_num}.pdf`,
+          filename: `sample_details_${resolvedParams?.patient_id}_${resolvedParams?.medical_num}.pdf`,
           image: { type: 'jpeg', quality: 0.98 },
           html2canvas: {
             scale: 2,
@@ -224,7 +141,6 @@ export default function BillingPage({ params }: BillingPageProps) {
       return;
     }
 
-    // 1. Get all stylesheets from the current document
     const styles = Array.from(document.querySelectorAll('link[rel="stylesheet"], style'))
       .map(style => style.outerHTML)
       .join('\n');
@@ -235,10 +151,9 @@ export default function BillingPage({ params }: BillingPageProps) {
       <!DOCTYPE html>
       <html>
         <head>
-          <title>Billing Report - ${resolvedParams?.patient_id}</title>
+          <title>Sample Details Report - ${resolvedParams?.patient_id}</title>
           ${styles} 
           <style>
-            /* Additional overrides for print consistency */
             @page {
               size: A4 portrait;
               margin: 10mm;
@@ -249,13 +164,10 @@ export default function BillingPage({ params }: BillingPageProps) {
               margin: 0 !important;
               -webkit-print-color-adjust: exact;
             }
-            /* Ensure flex and grid layouts are forced in print */
             .flex { display: flex !important; }
             .grid { display: grid !important; }
             .flex-nowrap { flex-wrap: nowrap !important; }
             .justify-between { justify-content: space-between !important; }
-            
-            /* Hide any interactive elements that might have leaked in */
             .print\\:hidden { display: none !important; }
           </style>
         </head>
@@ -269,14 +181,10 @@ export default function BillingPage({ params }: BillingPageProps) {
 
     printWindow.document.close();
 
-    // 2. Wait for styles/images to load before triggering print
     printWindow.onload = () => {
-      // Small delay to ensure Tailwind's JIT styles are applied
       setTimeout(() => {
         printWindow.focus();
         printWindow.print();
-        // Optional: Close window after printing
-        // printWindow.close();
       }, 500);
     };
   };
@@ -286,7 +194,7 @@ export default function BillingPage({ params }: BillingPageProps) {
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading billing details...</p>
+          <p className="text-gray-600">Loading sample details...</p>
         </div>
       </div>
     );
@@ -333,13 +241,13 @@ export default function BillingPage({ params }: BillingPageProps) {
           </button>
         </div>
 
-        {/* ──────────────────────────────────────────────── */}
+        {/* ─────────────────────────────────────────────────── */}
         {/* Everything below is included in PDF and Print     */}
-        {/* ──────────────────────────────────────────────── */}
+        {/* ─────────────────────────────────────────────────── */}
 
         <div ref={billContentRef} className="bg-white print:bg-white">
 
-          {/* Lab Information Header – now included in print/PDF */}
+          {/* Lab Information Header */}
           <div className="p-6 bg-white border-b-2 border-slate-300 print:border-b print:border-gray-400">
             <div className="flex justify-between items-start">
               <div>
@@ -357,10 +265,10 @@ export default function BillingPage({ params }: BillingPageProps) {
             </div>
           </div>
 
-          {/* Billing Report Header */}
+          {/* Sample Details Report Header */}
           <div className="px-6 py-6 border-b-2 border-slate-300 print:border-b print:border-gray-400 flex flex-nowrap justify-between items-center gap-4">
             <div>
-              <h1 className="text-2xl font-bold tracking-tight text-slate-700">BILLING REPORT</h1>
+              <h1 className="text-2xl font-bold tracking-tight text-slate-700">SAMPLE DETAILS REPORT</h1>
               <p className="text-slate-500 text-xs font-medium mt-1 uppercase tracking-widest">
                 iSmart Health Lab System
               </p>
@@ -375,10 +283,7 @@ export default function BillingPage({ params }: BillingPageProps) {
 
           {/* IDs Section */}
           <div className="px-6 py-4 border-b-2 border-slate-300 print:border-b print:border-gray-400">
-            <div className="
-              flex flex-nowrap items-start justify-between gap-3
-              print:flex print:flex-nowrap print:gap-2 print:justify-between print:items-baseline
-            ">
+            <div className="flex flex-nowrap items-start justify-between gap-3 print:flex print:flex-nowrap print:gap-2 print:justify-between print:items-baseline">
               <div className="flex-1 min-w-[80px] max-w-[25%] print:min-w-[70px] print:max-w-[24%]">
                 <p className="text-[9px] font-bold text-slate-500 uppercase mb-0.5">Patient ID</p>
                 <p className="text-xs font-mono font-bold text-blue-700 break-all leading-tight">
@@ -411,10 +316,7 @@ export default function BillingPage({ params }: BillingPageProps) {
             <h3 className="text-xs font-black text-slate-600 uppercase tracking-widest mb-3 print:mb-2">
               Patient Details
             </h3>
-            <div className="
-              grid grid-cols-5 gap-x-4 gap-y-2 text-sm
-              print:grid-cols-5 print:gap-x-2 print:gap-y-1 print:text-xs
-            ">
+            <div className="grid grid-cols-5 gap-x-4 gap-y-2 text-sm print:grid-cols-5 print:gap-x-2 print:gap-y-1 print:text-xs">
               <div className="min-w-0">
                 <p className="text-[9px] text-slate-500 font-bold uppercase mb-0.5">Full Name</p>
                 <p className="font-bold text-slate-900 leading-tight">
@@ -453,8 +355,8 @@ export default function BillingPage({ params }: BillingPageProps) {
                     <th className="p-3 text-xs font-bold text-slate-700 uppercase">Tests</th>
                     <th className="p-3 text-xs font-bold text-slate-700 uppercase text-center w-32">Schedule</th>
                     <th className="p-3 text-xs font-bold text-slate-700 uppercase w-40">Instructions</th>
-                    <th className="p-3 text-xs font-bold text-slate-700 uppercase text-right w-24">Price</th>
-                    <th className="p-3 text-xs font-bold text-slate-700 uppercase text-center w-28">Status</th>
+                    <th className="p-3 text-xs font-bold text-slate-700 uppercase text-center w-24">Status</th>
+                    <th className="p-3 text-xs font-bold text-slate-700 uppercase text-center w-32 print:hidden">Results</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-300 print:divide-y print:divide-gray-400">
@@ -468,9 +370,6 @@ export default function BillingPage({ params }: BillingPageProps) {
                           <div className="text-[9px] text-slate-500">{test.time}</div>
                         </td>
                         <td className="p-3 text-xs text-slate-600">{test.instructions}</td>
-                        <td className="p-3 text-right font-mono font-bold text-slate-900">
-                          ${test.price.toFixed(2)}
-                        </td>
                         <td className="p-3 text-center">
                           <span
                             className={`inline-block px-2 py-1 rounded text-[9px] font-bold uppercase ${
@@ -481,6 +380,16 @@ export default function BillingPage({ params }: BillingPageProps) {
                           >
                             {test.billingStatus}
                           </span>
+                        </td>
+                        <td className="p-3 text-center print:hidden">
+                          <Link
+                            href={`/lab/AddReport/${resolvedParams?.medical_num}/${resolvedParams?.patient_id}`}
+                            className="inline-flex items-center gap-1 bg-green-600 hover:bg-green-700 text-white font-bold py-1.5 px-2.5 rounded text-[10px] transition-all"
+                            title="Add test results"
+                          >
+                            <Plus size={14} />
+                            Add Results
+                          </Link>
                         </td>
                       </tr>
                     ))
@@ -496,120 +405,11 @@ export default function BillingPage({ params }: BillingPageProps) {
             </div>
           </div>
 
-          {/* Summary Section */}
+          {/* Notice Section */}
           <div className="px-6 py-6 border-t-2 border-slate-300 print:border-t print:border-gray-400">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-              <div className="lg:col-span-1 text-slate-600 text-xs">
-                <p className="font-bold uppercase mb-2 text-slate-700">Notice:</p>
-                <p>This is a computer-generated billing report. Please ensure all tests match the physician&quot;s referral.</p>
-              </div>
-
-              <div className="lg:col-span-2 space-y-5">
-                <div className="border border-slate-300 print:border print:border-gray-400 p-4 rounded">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm font-bold text-slate-700 uppercase">Total Amount</span>
-                    <span className="text-xl font-black font-mono text-slate-900">${totalAmount.toFixed(2)}</span>
-                  </div>
-                </div>
-
-                {!showBillingControls && (
-                  <button
-                    onClick={handleApproveAll}
-                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-4 rounded transition-all uppercase tracking-wider text-sm print:hidden"
-                  >
-                    Approve All
-                  </button>
-                )}
-
-                {showBillingControls && (
-                  <>
-                    <div className="border border-slate-300 print:border print:border-gray-400 p-4 rounded space-y-3">
-                      <div className="flex items-center justify-between gap-4">
-                        <label className="flex items-center gap-3 cursor-pointer flex-1">
-                          <input
-                            type="checkbox"
-                            checked={discountEnabled}
-                            onChange={(e) => setDiscountEnabled(e.target.checked)}
-                            className="w-5 h-5 text-blue-600 rounded"
-                          />
-                          <span className="text-sm font-bold text-slate-700 uppercase">Apply Discount %</span>
-                        </label>
-                        {discountEnabled && (
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="text"
-                              value={discountValue}
-                              onChange={handleDiscountChange}
-                              placeholder="0.00"
-                              className="w-20 px-3 py-1.5 border border-slate-300 rounded text-sm font-semibold text-center"
-                            />
-                            <span className="text-sm font-bold text-slate-700">%</span>
-                          </div>
-                        )}
-                      </div>
-                      {discountEnabled && (
-                        <div className="text-right text-sm text-slate-600 pt-2 border-t border-slate-200">
-                          Discount Amount: <span className="font-bold text-slate-900 ml-2">${discountAmount.toFixed(2)}</span>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="border border-blue-300 print:border print:border-gray-400 p-4 rounded bg-blue-50">
-                        <p className="text-xs font-bold text-blue-700 uppercase mb-1">Net Amount</p>
-                        <p className="text-xl font-black font-mono text-blue-900">${netAmount.toFixed(2)}</p>
-                      </div>
-                      <div className="border border-amber-300 print:border print:border-gray-400 p-4 rounded bg-amber-50">
-                        <p className="text-xs font-bold text-amber-700 uppercase mb-1">Balance Due</p>
-                        <p className="text-xl font-black font-mono text-amber-900">${balanceAmount.toFixed(2)}</p>
-                      </div>
-                    </div>
-
-                    <div className="border border-slate-300 print:border print:border-gray-400 p-4 rounded space-y-2">
-                      <label className="block">
-                        <p className="text-sm font-bold text-slate-700 uppercase mb-2">Advance Payment</p>
-                        <input
-                          type="text"
-                          value={advancePayment}
-                          onChange={handleAdvancePaymentChange}
-                          placeholder={`0.00 (Max: ${netAmount.toFixed(2)})`}
-                          className="w-full px-4 py-2 border border-slate-300 rounded text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                        <p className="text-xs text-slate-500 mt-1">Enter amount up to ${netAmount.toFixed(2)}</p>
-                      </label>
-                    </div>
-
-                    {saveMessage && (
-                      <div
-                        className={`p-3 rounded text-sm font-medium border ${
-                          saveMessage.type === 'success'
-                            ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                            : 'bg-red-50 text-red-800 border-red-200'
-                        }`}
-                      >
-                        {saveMessage.text}
-                      </div>
-                    )}
-
-                    <div className="flex gap-4 print:hidden">
-                      <button
-                        onClick={handleSaveChanges}
-                        disabled={savingChanges}
-                        className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold py-2.5 px-4 rounded transition-all uppercase text-sm"
-                      >
-                        {savingChanges ? 'Saving...' : 'Save Changes'}
-                      </button>
-                      <button
-                        onClick={handleBillingApproved}
-                        disabled={savingChanges}
-                        className="flex-1 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold py-2.5 px-4 rounded transition-all uppercase text-sm"
-                      >
-                        Billing Approved
-                      </button>
-                    </div>
-                  </>
-                )}
-              </div>
+            <div className="text-slate-600 text-xs">
+              <p className="font-bold uppercase mb-2 text-slate-700">Notice:</p>
+              <p>This is a computer-generated Sample Details Report. Please ensure all tests listed above match the physician&quot;s referral before processing the final payment.</p>
             </div>
           </div>
 

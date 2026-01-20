@@ -176,7 +176,7 @@ export default function PatientList() {
                 
                 return (
                   <tr
-                    key={p.billNo}
+                    key={`${p.billNo}-${index}`}
                     className={`transition-all duration-300 hover:shadow-md hover:shadow-emerald-100/50 border border-transparent hover:border-gray-200/30 group ${bg}`}
                   >
                     <td className="px-6 py-3.5 font-semibold text-sm text-gray-900 group-hover:text-gray-950">
@@ -210,7 +210,7 @@ export default function PatientList() {
                     <td className="px-4 py-3.5 text-center">
                       <button
                         title="Samples"
-                        onClick={() => router.push(`/lab/samples/${p.billNo}`)}
+                        onClick={() => router.push(`/lab/samples/${p.patient_unique_id}/${p.medical_num}`)}
                         className="group/btn relative p-2.5 rounded-xl bg-gradient-to-br from-emerald-400/90 to-teal-500/90 text-white shadow-md hover:shadow-lg hover:shadow-emerald-400/30 hover:scale-105 transition-all duration-300 focus:outline-none focus:ring-4 focus:ring-emerald-200/50 border border-emerald-300/50 hover:border-emerald-400/50"
                       >
                         <BeakerIcon className="h-4 w-4 drop-shadow-sm group-hover/btn:rotate-12" />
