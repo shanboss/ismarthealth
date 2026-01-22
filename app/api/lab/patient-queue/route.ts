@@ -61,16 +61,18 @@ export async function GET(request: NextRequest) {
     const totalCount = countResult[0]?.total || 0;
 
     // 5. Fetch Paginated Data
-    // We add order and limit/offset to the base query
+    // Note: LIMIT and OFFSET cannot use placeholders in MySQL prepared statements
+    // They must be interpolated directly (safe since they're parsed integers)
+    const safeLimit = Math.max(1, Math.min(limit, 100)); // Clamp between 1 and 100
+    const safeSkip = Math.max(0, skip); // Ensure non-negative
     const dataSql = `
       SELECT p.*, b.balance_amt, b.final_balance, b.balance_pymnt2 FROM patientqueue as p left join billing as b 
       on p.medical_num = b.medical_num and p.patient_unique_id = b.patient_unique_id 
       ${whereSql} 
       ORDER BY p.created_on DESC 
-      LIMIT ? OFFSET ?
+      LIMIT ${safeLimit} OFFSET ${safeSkip}
     `;
-    const dataParams = [...params, limit, skip];
-    const patients = await query<PatientQueueRow[]>(dataSql, dataParams);
+    const patients = await query<PatientQueueRow[]>(dataSql, params);
 
     // 6. Calculate pagination metadata
     const totalPages = Math.ceil(totalCount / limit);
