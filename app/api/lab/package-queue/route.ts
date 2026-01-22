@@ -60,14 +60,17 @@ export async function GET(request: NextRequest) {
     const totalCount = countResult[0]?.total || 0;
 
     // 5. Fetch Paginated Data
+    // Note: LIMIT and OFFSET cannot use placeholders in MySQL prepared statements
+    // They must be interpolated directly (safe since they're parsed integers)
+    const safeLimit = Math.max(1, Math.min(limit, 100)); // Clamp between 1 and 100
+    const safeSkip = Math.max(0, skip); // Ensure non-negative
     const dataSql = `
       SELECT * FROM package_queue 
       ${whereSql} 
       ORDER BY created_on DESC 
-      LIMIT ? OFFSET ?
+      LIMIT ${safeLimit} OFFSET ${safeSkip}
     `;
-    const dataParams = [...params, limit, skip];
-    const packages = await query<PackageQueueRow[]>(dataSql, dataParams);
+    const packages = await query<PackageQueueRow[]>(dataSql, params);
 
     // 6. Serialize data (Handling BigInt to string conversion)
     const serializedPackages = packages.map((pkg) => ({

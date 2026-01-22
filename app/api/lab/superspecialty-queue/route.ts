@@ -67,6 +67,10 @@ export async function GET(request: NextRequest) {
     const totalCount = countResult[0]?.total || 0;
 
     // 5. Fetch Paginated and Enriched Data using a LEFT JOIN
+    // Note: LIMIT and OFFSET cannot use placeholders in MySQL prepared statements
+    // They must be interpolated directly (safe since they're parsed integers)
+    const safeLimit = Math.max(1, Math.min(limit, 100)); // Clamp between 1 and 100
+    const safeSkip = Math.max(0, skip); // Ensure non-negative
     const dataSql = `
       SELECT 
         c.ss_id, c.consultationId, c.referdate, c.totalAmount, c.status,
@@ -75,10 +79,9 @@ export async function GET(request: NextRequest) {
       LEFT JOIN referral_patient_details p ON c.referral_patient_id = p.referral_patient_id
       ${whereSql}
       ORDER BY c.referdate DESC
-      LIMIT ? OFFSET ?
+      LIMIT ${safeLimit} OFFSET ${safeSkip}
     `;
-    const dataParams = [...params, limit, skip];
-    const rows = await query<EnrichedConsultationRow[]>(dataSql, dataParams);
+    const rows = await query<EnrichedConsultationRow[]>(dataSql, params);
 
     // 6. Format the data to match your existing frontend structure
     const enrichedData = rows.map((row) => ({
