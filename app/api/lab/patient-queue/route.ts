@@ -38,34 +38,35 @@ export async function GET(request: NextRequest) {
     }
 
     // 3. Build dynamic SQL for WHERE clause
-    let whereSql = "WHERE laboratory_id = ?";
+    let whereSql = "WHERE p.laboratory_id = ?";
     const params: (string | number)[] = [laboratoryId];
 
     if (searchQuery.trim()) {
       const searchWildcard = `%${searchQuery}%`;
       whereSql += ` AND (
-        BillId LIKE ? OR 
-        firstname LIKE ? OR 
-        phonenum LIKE ? OR 
-        phyfname LIKE ? OR 
-        medical_num LIKE ? OR 
-        mailid LIKE ?
+        p.BillId LIKE ? OR 
+        p.firstname LIKE ? OR 
+        p.phonenum LIKE ? OR 
+        p.phyfname LIKE ? OR 
+        p.medical_num LIKE ? OR 
+        p.mailid LIKE ?
       )`;
       // Add the wildcard for each of the 6 searchable fields
       params.push(searchWildcard, searchWildcard, searchWildcard, searchWildcard, searchWildcard, searchWildcard);
     }
 
     // 4. Fetch Total Count for pagination
-    const countSql = `SELECT COUNT(*) as total FROM patientqueue ${whereSql}`;
+    const countSql = `SELECT COUNT(*) as total FROM patientqueue as p ${whereSql}`;
     const countResult = await query<RowDataPacket[]>(countSql, params);
     const totalCount = countResult[0]?.total || 0;
 
     // 5. Fetch Paginated Data
     // We add order and limit/offset to the base query
     const dataSql = `
-      SELECT * FROM patientqueue 
+      SELECT p.*, b.balance_amt, b.final_balance, b.balance_pymnt2 FROM patientqueue as p left join billing as b 
+      on p.medical_num = b.medical_num and p.patient_unique_id = b.patient_unique_id 
       ${whereSql} 
-      ORDER BY created_on DESC 
+      ORDER BY p.created_on DESC 
       LIMIT ? OFFSET ?
     `;
     const dataParams = [...params, limit, skip];

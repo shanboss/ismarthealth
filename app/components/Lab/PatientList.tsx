@@ -14,7 +14,6 @@ import {
 
 import { PatientQueue, Patient } from "../../config/lab/PatientList";
 
-
 export default function PatientList() {
   const router = useRouter();
   const [page, setPage] = useState<number>(1);
@@ -60,7 +59,6 @@ export default function PatientList() {
       }
     }
 
-    // Debounce search to avoid too many API calls
     const timeoutId = setTimeout(() => {
       fetchPatients();
     }, 300);
@@ -82,9 +80,48 @@ export default function PatientList() {
       }),
       settled: p.billing_status === 1,
       medical_num: p.medical_num,
-      patient_unique_id: p.patient_unique_id
+      patient_unique_id: p.patient_unique_id,
+      balance_amt: p.balance_amt || 0,
+      final_balance: p.final_balance || 0,
+      balance_pymnt2: p.balance_pymnt2 || 0,
     }));
-  }, [patients]); 
+  }, [patients]);
+
+  // Helper to generate page numbers with ellipsis
+  const generatePageNumbers = (current: number, total: number): (number | string)[] => {
+    const pages: (number | string)[] = [];
+    const maxVisible = 7; // you can change this (5, 9, etc.)
+
+    if (total <= maxVisible) {
+      for (let i = 1; i <= total; i++) {
+        pages.push(i);
+      }
+      return pages;
+    }
+
+    pages.push(1);
+
+    if (current > 3) {
+      pages.push("...");
+    }
+
+    const start = Math.max(2, current - 2);
+    const end = Math.min(total - 1, current + 2);
+
+    for (let i = start; i <= end; i++) {
+      pages.push(i);
+    }
+
+    if (current < total - 2) {
+      pages.push("...");
+    }
+
+    if (total > 1) {
+      pages.push(total);
+    }
+
+    return pages;
+  };
 
   if (loading) {
     return (
@@ -110,15 +147,15 @@ export default function PatientList() {
                 Patient List
               </h1>
               <h6 className="text-sm bg-gradient-to-r from-gray-900 via-gray-800 to-blue-900 bg-clip-text text-transparent">
-                 Manage today&apos;s patient queue and actions.
+                Manage today&apos;s patient queue and actions.
               </h6>
               <p className="text-sm text-gray-600 mt-1 font-medium">
-                Showing <span className="font-bold text-blue-600">{displayPatients.length}</span> of{' '}
+                Showing <span className="font-bold text-blue-600">{displayPatients.length}</span> of{" "}
                 <span className="font-bold text-indigo-600">{pagination.totalCount.toLocaleString()}</span> total patients
               </p>
             </div>
           </div>
-          
+
           {/* Enhanced Search */}
           <div className="relative flex-1 max-w-sm">
             <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -139,41 +176,41 @@ export default function PatientList() {
       <div className="bg-white/70 backdrop-blur-xl rounded-2xl border border-gray-200/50 shadow-xl overflow-hidden">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200/50">
-          <thead className="bg-gradient-to-r from-gray-200/90 to-gray-300/90 backdrop-blur-sm sticky top-0 z-10 shadow-sm border-b-2 border-gray-300">
-            <tr className="divide-x divide-gray-300/50">
-              <th className="px-6 py-3 text-left font-semibold text-gray-800 tracking-wide text-xs uppercase">
-                Bill #
-              </th>
-              <th className="px-6 py-3 text-left font-semibold text-gray-800 tracking-wide text-xs uppercase">
-                Patient Name
-              </th>
-              <th className="px-6 py-3 text-left font-semibold text-gray-800 tracking-wide text-xs uppercase">
-                Phone
-              </th>
-              <th className="px-6 py-3 text-left font-semibold text-gray-800 tracking-wide text-xs uppercase">
-                Doctor
-              </th>
-              <th className="px-6 py-3 text-left font-semibold text-gray-800 tracking-wide text-xs uppercase">
-                Refer Date
-              </th>
-              <th className="px-6 py-3 text-center font-semibold text-gray-800 tracking-wide text-xs uppercase">
-                Billing
-              </th>
-              <th className="px-6 py-3 text-center font-semibold text-gray-800 tracking-wide text-xs uppercase">
-                Samples
-              </th>
-              <th className="px-6 py-3 text-center font-semibold text-gray-800 tracking-wide text-xs uppercase">
-                Reports
-              </th>
-            </tr>
-          </thead>
+            <thead className="bg-gradient-to-r from-gray-200/90 to-gray-300/90 backdrop-blur-sm sticky top-0 z-10 shadow-sm border-b-2 border-gray-300">
+              <tr className="divide-x divide-gray-300/50">
+                <th className="px-6 py-3 text-left font-semibold text-gray-800 tracking-wide text-xs uppercase">
+                  Bill #
+                </th>
+                <th className="px-6 py-3 text-left font-semibold text-gray-800 tracking-wide text-xs uppercase">
+                  Patient Name
+                </th>
+                <th className="px-6 py-3 text-left font-semibold text-gray-800 tracking-wide text-xs uppercase">
+                  Phone
+                </th>
+                <th className="px-6 py-3 text-left font-semibold text-gray-800 tracking-wide text-xs uppercase">
+                  Doctor
+                </th>
+                <th className="px-6 py-3 text-left font-semibold text-gray-800 tracking-wide text-xs uppercase">
+                  Refer Date
+                </th>
+                <th className="px-6 py-3 text-center font-semibold text-gray-800 tracking-wide text-xs uppercase">
+                  Billing
+                </th>
+                <th className="px-6 py-3 text-center font-semibold text-gray-800 tracking-wide text-xs uppercase">
+                  Samples
+                </th>
+                <th className="px-6 py-3 text-center font-semibold text-gray-800 tracking-wide text-xs uppercase">
+                  Reports
+                </th>
+              </tr>
+            </thead>
 
             <tbody className="divide-y divide-gray-100/50">
               {displayPatients.map((p, index) => {
                 const bg = p.settled
                   ? "hover:bg-emerald-50/80 bg-emerald-50/60"
                   : "hover:bg-red-50/80 bg-red-50/60";
-                
+
                 return (
                   <tr
                     key={`${p.billNo}-${index}`}
@@ -195,7 +232,7 @@ export default function PatientList() {
                       </span>
                     </td>
                     <td className="px-6 py-3.5 text-gray-700 text-sm font-medium">{p.referDate}</td>
-                    
+
                     {/* Action Buttons */}
                     <td className="px-4 py-3.5 text-center">
                       <button
@@ -208,9 +245,12 @@ export default function PatientList() {
                       </button>
                     </td>
                     <td className="px-4 py-3.5 text-center">
+                      {p.balance_amt}==
+                      {p.balance_pymnt2 } <br />
                       <button
                         title="Samples"
                         onClick={() => router.push(`/lab/samples/${p.patient_unique_id}/${p.medical_num}`)}
+                        disabled={ parseFloat(p.balance_amt.toString()) == 0.00 || parseFloat(p.balance_amt.toString()) == 0 || ((parseFloat(p.balance_amt.toString()) == parseFloat(p.balance_pymnt2.toString())) && parseFloat(p.balance_amt.toString()) > 0 && parseFloat(p.balance_pymnt2.toString()) > 0 ) ? false : true}
                         className="group/btn relative p-2.5 rounded-xl bg-gradient-to-br from-emerald-400/90 to-teal-500/90 text-white shadow-md hover:shadow-lg hover:shadow-emerald-400/30 hover:scale-105 transition-all duration-300 focus:outline-none focus:ring-4 focus:ring-emerald-200/50 border border-emerald-300/50 hover:border-emerald-400/50"
                       >
                         <BeakerIcon className="h-4 w-4 drop-shadow-sm group-hover/btn:rotate-12" />
@@ -230,7 +270,7 @@ export default function PatientList() {
                   </tr>
                 );
               })}
-              
+
               {displayPatients.length === 0 && (
                 <tr>
                   <td colSpan={8} className="px-12 py-16 text-center">
@@ -243,10 +283,9 @@ export default function PatientList() {
                           {query ? "No matching patients found" : "No patients in queue"}
                         </h3>
                         <p className="text-gray-600 text-sm">
-                          {query 
-                            ? `No patients match "${query}". Try different search terms.` 
-                            : "Patient queue is currently empty. Check back later."
-                          }
+                          {query
+                            ? `No patients match "${query}". Try different search terms.`
+                            : "Patient queue is currently empty. Check back later."}
                         </p>
                       </div>
                     </div>
@@ -258,27 +297,59 @@ export default function PatientList() {
         </div>
       </div>
 
-      {/* Enhanced Pagination */}
+      {/* Enhanced Pagination with page numbers */}
       {displayPatients.length > 0 && (
-        <div className="flex items-center justify-center gap-3 p-6 bg-gradient-to-r from-gray-50/80 to-white/80 backdrop-blur-xl rounded-2xl border border-gray-200/50 shadow-lg">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-6 bg-gradient-to-r from-gray-50/80 to-white/80 backdrop-blur-xl rounded-2xl border border-gray-200/50 shadow-lg">
+          {/* Previous */}
           <button
             onClick={() => setPage((p) => Math.max(1, p - 1))}
-            disabled={!pagination.hasPrev}
-            className="group relative inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-gray-100 to-gray-200 border-2 border-gray-300/50 text-gray-700 font-semibold text-sm shadow-md hover:shadow-lg hover:from-blue-500 hover:to-indigo-600 hover:text-white hover:border-blue-400/50 hover:scale-[1.02] transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:from-gray-100 disabled:hover:to-gray-200 disabled:hover:text-gray-700 focus:outline-none focus:ring-4 focus:ring-blue-200/50"
+            disabled={!pagination.hasPrev || pagination.page === 1}
+            className="group relative inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-gray-100 to-gray-200 border-2 border-gray-300/50 text-gray-700 font-semibold text-sm shadow-md hover:shadow-lg hover:from-blue-500 hover:to-indigo-600 hover:text-white hover:border-blue-400/50 hover:scale-[1.02] transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-4 focus:ring-blue-200/50 min-w-[110px] justify-center"
           >
             <ChevronLeftIcon className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform duration-300" />
             Previous
           </button>
 
-          <div className="px-6 py-2.5 bg-white/60 backdrop-blur-sm rounded-xl border border-gray-200/50 shadow-md font-semibold text-base text-gray-900 min-w-[140px] text-center">
-            Page <span className="text-blue-600 font-bold text-lg">{pagination.page}</span> of{' '}
-            <span className="text-indigo-600 font-bold text-lg">{pagination.totalPages}</span>
+          {/* Page numbers */}
+          <div className="flex items-center gap-1.5 flex-wrap justify-center">
+            {generatePageNumbers(pagination.page, pagination.totalPages).map((pageItem, idx) => {
+              if (pageItem === "...") {
+                return (
+                  <span
+                    key={`ellipsis-${idx}`}
+                    className="px-3 py-2 text-gray-500 font-medium select-none"
+                  >
+                    …
+                  </span>
+                );
+              }
+
+              const isCurrent = pagination.page === pageItem;
+
+              return (
+                <button
+                  key={pageItem}
+                  onClick={() => setPage(Number(pageItem))}
+                  className={`
+                    relative px-4 py-2 rounded-lg font-medium text-sm min-w-[40px] text-center transition-all duration-200
+                    ${
+                      isCurrent
+                        ? "bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-md shadow-blue-400/40 scale-105"
+                        : "bg-white/70 border border-gray-300/70 text-gray-700 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700 hover:shadow-sm"
+                    }
+                  `}
+                >
+                  {pageItem}
+                </button>
+              );
+            })}
           </div>
 
+          {/* Next */}
           <button
             onClick={() => setPage((p) => Math.min(pagination.totalPages, p + 1))}
-            disabled={!pagination.hasNext}
-            className="group relative inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-gray-100 to-gray-200 border-2 border-gray-300/50 text-gray-700 font-semibold text-sm shadow-md hover:shadow-lg hover:from-blue-500 hover:to-indigo-600 hover:text-white hover:border-blue-400/50 hover:scale-[1.02] transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:from-gray-100 disabled:hover:to-gray-200 disabled:hover:text-gray-700 focus:outline-none focus:ring-4 focus:ring-blue-200/50"
+            disabled={!pagination.hasNext || pagination.page === pagination.totalPages}
+            className="group relative inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-gray-100 to-gray-200 border-2 border-gray-300/50 text-gray-700 font-semibold text-sm shadow-md hover:shadow-lg hover:from-blue-500 hover:to-indigo-600 hover:text-white hover:border-blue-400/50 hover:scale-[1.02] transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-4 focus:ring-blue-200/50 min-w-[110px] justify-center"
           >
             Next
             <ChevronRightIcon className="w-4 h-4 group-hover:translate-x-0.5 transition-transform duration-300" />

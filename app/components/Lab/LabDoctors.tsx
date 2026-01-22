@@ -5,7 +5,6 @@ import { PencilIcon, TrashIcon, MagnifyingGlassIcon, ChevronLeftIcon, ChevronRig
 
 import { Doctor, sampleDoctors, SortField, SortOrder } from "../../config/lab/LabDoctors";
 
-
 const SortIcon = ({ field, sortField, sortOrder }: { 
   field: SortField; 
   sortField: SortField | null; 
@@ -69,8 +68,8 @@ export default function LabDoctors() {
     // Sort
     if (sortField) {
       result.sort((a, b) => {
-        const aVal = a[sortField];
-        const bVal = b[sortField];
+        const aVal = a[sortField] as string;
+        const bVal = b[sortField] as string;
         if (aVal < bVal) return sortOrder === "asc" ? -1 : 1;
         if (aVal > bVal) return sortOrder === "asc" ? 1 : -1;
         return 0;
@@ -85,6 +84,42 @@ export default function LabDoctors() {
   const startIndex = (currentPage - 1) * entriesPerPage;
   const endIndex = Math.min(startIndex + entriesPerPage, totalEntries);
   const currentDoctors = filteredAndSortedDoctors.slice(startIndex, endIndex);
+
+  // Helper to generate page numbers with ellipsis
+  const generatePageNumbers = (current: number, total: number): (number | string)[] => {
+    const pages: (number | string)[] = [];
+    const maxVisible = 7; // you can change this (5, 9, etc.)
+
+    if (total <= maxVisible) {
+      for (let i = 1; i <= total; i++) {
+        pages.push(i);
+      }
+      return pages;
+    }
+
+    pages.push(1);
+
+    if (current > 3) {
+      pages.push("...");
+    }
+
+    const start = Math.max(2, current - 2);
+    const end = Math.min(total - 1, current + 2);
+
+    for (let i = start; i <= end; i++) {
+      pages.push(i);
+    }
+
+    if (current < total - 2) {
+      pages.push("...");
+    }
+
+    if (total > 1) {
+      pages.push(total);
+    }
+
+    return pages;
+  };
 
   const handleEdit = (doctor: Doctor) => {
     console.log("Edit doctor:", doctor);
@@ -288,27 +323,59 @@ export default function LabDoctors() {
         </div>
       </div>
 
-      {/* Enhanced Pagination */}
-      {currentDoctors.length > 0 && (
-        <div className="flex items-center justify-center gap-3 p-6 bg-gradient-to-r from-gray-50/80 to-white/80 backdrop-blur-xl rounded-2xl border border-gray-200/50 shadow-lg">
+      {/* Enhanced Pagination with page numbers */}
+      {currentDoctors.length > 0 && totalPages > 1 && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-6 bg-gradient-to-r from-gray-50/80 to-white/80 backdrop-blur-xl rounded-2xl border border-gray-200/50 shadow-lg">
+          {/* Previous */}
           <button
             onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
             disabled={currentPage === 1}
-            className="group relative inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-gray-100 to-gray-200 border-2 border-gray-300/50 text-gray-700 font-semibold text-sm shadow-md hover:shadow-lg hover:from-emerald-500 hover:to-teal-600 hover:text-white hover:border-emerald-400/50 hover:scale-[1.02] transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:from-gray-100 disabled:hover:to-gray-200 disabled:hover:text-gray-700 focus:outline-none focus:ring-4 focus:ring-emerald-200/50"
+            className="group relative inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-gray-100 to-gray-200 border-2 border-gray-300/50 text-gray-700 font-semibold text-sm shadow-md hover:shadow-lg hover:from-emerald-500 hover:to-teal-600 hover:text-white hover:border-emerald-400/50 hover:scale-[1.02] transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-4 focus:ring-emerald-200/50 min-w-[110px] justify-center"
           >
             <ChevronLeftIcon className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform duration-300" />
             Previous
           </button>
 
-          <div className="px-6 py-2.5 bg-white/60 backdrop-blur-sm rounded-xl border border-gray-200/50 shadow-md font-semibold text-base text-gray-900 min-w-[140px] text-center">
-            Page <span className="text-emerald-600 font-bold text-lg">{currentPage}</span> of{' '}
-            <span className="text-teal-600 font-bold text-lg">{totalPages}</span>
+          {/* Page numbers */}
+          <div className="flex items-center gap-1.5 flex-wrap justify-center">
+            {generatePageNumbers(currentPage, totalPages).map((pageItem, idx) => {
+              if (pageItem === "...") {
+                return (
+                  <span
+                    key={`ellipsis-${idx}`}
+                    className="px-3 py-2 text-gray-500 font-medium select-none"
+                  >
+                    …
+                  </span>
+                );
+              }
+
+              const isCurrent = currentPage === pageItem;
+
+              return (
+                <button
+                  key={pageItem}
+                  onClick={() => setCurrentPage(Number(pageItem))}
+                  className={`
+                    relative px-4 py-2 rounded-lg font-medium text-sm min-w-[40px] text-center transition-all duration-200
+                    ${
+                      isCurrent
+                        ? "bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-md shadow-emerald-400/40 scale-105"
+                        : "bg-white/70 border border-gray-300/70 text-gray-700 hover:bg-emerald-50 hover:border-emerald-300 hover:text-emerald-700 hover:shadow-sm"
+                    }
+                  `}
+                >
+                  {pageItem}
+                </button>
+              );
+            })}
           </div>
 
+          {/* Next */}
           <button
             onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
             disabled={currentPage === totalPages}
-            className="group relative inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-gray-100 to-gray-200 border-2 border-gray-300/50 text-gray-700 font-semibold text-sm shadow-md hover:shadow-lg hover:from-emerald-500 hover:to-teal-600 hover:text-white hover:border-emerald-400/50 hover:scale-[1.02] transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:from-gray-100 disabled:hover:to-gray-200 disabled:hover:text-gray-700 focus:outline-none focus:ring-4 focus:ring-emerald-200/50"
+            className="group relative inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-gray-100 to-gray-200 border-2 border-gray-300/50 text-gray-700 font-semibold text-sm shadow-md hover:shadow-lg hover:from-emerald-500 hover:to-teal-600 hover:text-white hover:border-emerald-400/50 hover:scale-[1.02] transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-4 focus:ring-emerald-200/50 min-w-[110px] justify-center"
           >
             Next
             <ChevronRightIcon className="w-4 h-4 group-hover:translate-x-0.5 transition-transform duration-300" />

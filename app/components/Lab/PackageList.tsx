@@ -12,8 +12,7 @@ import {
   ShoppingBagIcon,
 } from "@heroicons/react/24/outline";
 
-import { PackageQueueData, PackageRow }  from "../../config/lab/PackageList";
-
+import { PackageQueueData, PackageRow } from "../../config/lab/PackageList";
 
 export default function PackageList() {
   const router = useRouter();
@@ -44,9 +43,7 @@ export default function PackageList() {
           params.append("search", query.trim());
         }
 
-        const response = await fetch(
-          `/api/lab/package-queue?${params.toString()}`
-        );
+        const response = await fetch(`/api/lab/package-queue?${params.toString()}`);
         const data = await response.json();
 
         if (data.success) {
@@ -60,7 +57,6 @@ export default function PackageList() {
       }
     }
 
-    // Debounce search to avoid too many API calls
     const timeoutId = setTimeout(() => {
       fetchPackages();
     }, 300);
@@ -81,6 +77,42 @@ export default function PackageList() {
       referDate: p.referdate || "N/A",
     }));
   }, [packages]);
+
+  // Helper to generate page numbers with ellipsis
+  const generatePageNumbers = (current: number, total: number): (number | string)[] => {
+    const pages: (number | string)[] = [];
+    const maxVisible = 7; // adjust as needed (5, 9, etc.)
+
+    if (total <= maxVisible) {
+      for (let i = 1; i <= total; i++) {
+        pages.push(i);
+      }
+      return pages;
+    }
+
+    pages.push(1);
+
+    if (current > 3) {
+      pages.push("...");
+    }
+
+    const start = Math.max(2, current - 2);
+    const end = Math.min(total - 1, current + 2);
+
+    for (let i = start; i <= end; i++) {
+      pages.push(i);
+    }
+
+    if (current < total - 2) {
+      pages.push("...");
+    }
+
+    if (total > 1) {
+      pages.push(total);
+    }
+
+    return pages;
+  };
 
   if (loading) {
     return (
@@ -106,15 +138,15 @@ export default function PackageList() {
                 Package Queue
               </h1>
               <h6 className="text-sm bg-gradient-to-r from-gray-900 via-gray-800 to-purple-900 bg-clip-text text-transparent">
-                 View and manage package queue
+                View and manage package queue
               </h6>
               <p className="text-sm text-gray-600 mt-1 font-medium">
-                Showing <span className="font-bold text-purple-600">{displayPackages.length}</span> of{' '}
+                Showing <span className="font-bold text-purple-600">{displayPackages.length}</span> of{" "}
                 <span className="font-bold text-pink-600">{pagination.totalCount.toLocaleString()}</span> total packages
               </p>
             </div>
           </div>
-          
+
           {/* Enhanced Search */}
           <div className="relative flex-1 max-w-sm">
             <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -137,36 +169,16 @@ export default function PackageList() {
           <table className="min-w-full divide-y divide-gray-200/50">
             <thead className="bg-gradient-to-r from-gray-200/90 to-gray-300/90 backdrop-blur-sm sticky top-0 z-10 shadow-sm border-b-2 border-gray-300">
               <tr className="divide-x divide-gray-300/50">
-                <th className="px-6 py-3 text-left font-semibold text-gray-800 tracking-wide text-xs uppercase">
-                  ID
-                </th>
-                <th className="px-6 py-3 text-left font-semibold text-gray-800 tracking-wide text-xs uppercase">
-                  Medical #
-                </th>
-                <th className="px-6 py-3 text-left font-semibold text-gray-800 tracking-wide text-xs uppercase">
-                  Package
-                </th>
-                <th className="px-6 py-3 text-left font-semibold text-gray-800 tracking-wide text-xs uppercase">
-                  Patient
-                </th>
-                <th className="px-6 py-3 text-left font-semibold text-gray-800 tracking-wide text-xs uppercase">
-                  Doctor
-                </th>
-                <th className="px-6 py-3 text-left font-semibold text-gray-800 tracking-wide text-xs uppercase">
-                  Refer Date
-                </th>
-                <th className="px-6 py-3 text-center font-semibold text-gray-800 tracking-wide text-xs uppercase">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-center font-semibold text-gray-800 tracking-wide text-xs uppercase">
-                  Billing
-                </th>
-                <th className="px-6 py-3 text-center font-semibold text-gray-800 tracking-wide text-xs uppercase">
-                  Samples
-                </th>
-                <th className="px-6 py-3 text-center font-semibold text-gray-800 tracking-wide text-xs uppercase">
-                  Reports
-                </th>
+                <th className="px-6 py-3 text-left font-semibold text-gray-800 tracking-wide text-xs uppercase">ID</th>
+                <th className="px-6 py-3 text-left font-semibold text-gray-800 tracking-wide text-xs uppercase">Medical #</th>
+                <th className="px-6 py-3 text-left font-semibold text-gray-800 tracking-wide text-xs uppercase">Package</th>
+                <th className="px-6 py-3 text-left font-semibold text-gray-800 tracking-wide text-xs uppercase">Patient</th>
+                <th className="px-6 py-3 text-left font-semibold text-gray-800 tracking-wide text-xs uppercase">Doctor</th>
+                <th className="px-6 py-3 text-left font-semibold text-gray-800 tracking-wide text-xs uppercase">Refer Date</th>
+                <th className="px-6 py-3 text-center font-semibold text-gray-800 tracking-wide text-xs uppercase">Status</th>
+                <th className="px-6 py-3 text-center font-semibold text-gray-800 tracking-wide text-xs uppercase">Billing</th>
+                <th className="px-6 py-3 text-center font-semibold text-gray-800 tracking-wide text-xs uppercase">Samples</th>
+                <th className="px-6 py-3 text-center font-semibold text-gray-800 tracking-wide text-xs uppercase">Reports</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100/50">
@@ -174,7 +186,7 @@ export default function PackageList() {
                 const bg = r.settled
                   ? "hover:bg-emerald-50/80 bg-emerald-50/60"
                   : "hover:bg-red-50/80 bg-red-50/60";
-                
+
                 return (
                   <tr
                     key={r.id}
@@ -198,15 +210,17 @@ export default function PackageList() {
                     <td className="px-6 py-3.5 text-gray-700 text-sm font-medium">{r.doctor}</td>
                     <td className="px-6 py-3.5 text-gray-700 text-sm font-medium">{r.referDate}</td>
                     <td className="px-6 py-3.5">
-                      <span className={`inline-flex px-3 py-1.5 rounded-full text-xs font-semibold shadow-sm ${
-                        r.settled
-                          ? "bg-gradient-to-r from-emerald-100 to-emerald-200 text-emerald-800"
-                          : "bg-gradient-to-r from-orange-100 to-orange-200 text-orange-800"
-                      }`}>
+                      <span
+                        className={`inline-flex px-3 py-1.5 rounded-full text-xs font-semibold shadow-sm ${
+                          r.settled
+                            ? "bg-gradient-to-r from-emerald-100 to-emerald-200 text-emerald-800"
+                            : "bg-gradient-to-r from-orange-100 to-orange-200 text-orange-800"
+                        }`}
+                      >
                         {r.settled ? "Settled" : "Pending"}
                       </span>
                     </td>
-                    
+
                     {/* Action Buttons */}
                     <td className="px-4 py-3.5 text-center">
                       <button
@@ -241,7 +255,7 @@ export default function PackageList() {
                   </tr>
                 );
               })}
-              
+
               {displayPackages.length === 0 && (
                 <tr>
                   <td colSpan={10} className="px-12 py-16 text-center">
@@ -254,10 +268,9 @@ export default function PackageList() {
                           {query ? "No matching packages found" : "No packages in queue"}
                         </h3>
                         <p className="text-gray-600 text-sm">
-                          {query 
-                            ? `No packages match "${query}". Try different search terms.` 
-                            : "Package queue is currently empty. Check back later."
-                          }
+                          {query
+                            ? `No packages match "${query}". Try different search terms.`
+                            : "Package queue is currently empty. Check back later."}
                         </p>
                       </div>
                     </div>
@@ -269,27 +282,59 @@ export default function PackageList() {
         </div>
       </div>
 
-      {/* Enhanced Pagination */}
+      {/* Enhanced Pagination with page numbers */}
       {displayPackages.length > 0 && (
-        <div className="flex items-center justify-center gap-3 p-6 bg-gradient-to-r from-gray-50/80 to-white/80 backdrop-blur-xl rounded-2xl border border-gray-200/50 shadow-lg">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-6 bg-gradient-to-r from-gray-50/80 to-white/80 backdrop-blur-xl rounded-2xl border border-gray-200/50 shadow-lg">
+          {/* Previous */}
           <button
             onClick={() => setPage((p) => Math.max(1, p - 1))}
-            disabled={!pagination.hasPrev}
-            className="group relative inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-gray-100 to-gray-200 border-2 border-gray-300/50 text-gray-700 font-semibold text-sm shadow-md hover:shadow-lg hover:from-purple-500 hover:to-pink-600 hover:text-white hover:border-purple-400/50 hover:scale-[1.02] transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:from-gray-100 disabled:hover:to-gray-200 disabled:hover:text-gray-700 focus:outline-none focus:ring-4 focus:ring-purple-200/50"
+            disabled={!pagination.hasPrev || pagination.page === 1}
+            className="group relative inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-gray-100 to-gray-200 border-2 border-gray-300/50 text-gray-700 font-semibold text-sm shadow-md hover:shadow-lg hover:from-purple-500 hover:to-pink-600 hover:text-white hover:border-purple-400/50 hover:scale-[1.02] transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-4 focus:ring-purple-200/50 min-w-[110px] justify-center"
           >
             <ChevronLeftIcon className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform duration-300" />
             Previous
           </button>
 
-          <div className="px-6 py-2.5 bg-white/60 backdrop-blur-sm rounded-xl border border-gray-200/50 shadow-md font-semibold text-base text-gray-900 min-w-[140px] text-center">
-            Page <span className="text-purple-600 font-bold text-lg">{pagination.page}</span> of{' '}
-            <span className="text-pink-600 font-bold text-lg">{pagination.totalPages}</span>
+          {/* Page numbers */}
+          <div className="flex items-center gap-1.5 flex-wrap justify-center">
+            {generatePageNumbers(pagination.page, pagination.totalPages).map((pageItem, idx) => {
+              if (pageItem === "...") {
+                return (
+                  <span
+                    key={`ellipsis-${idx}`}
+                    className="px-3 py-2 text-gray-500 font-medium select-none"
+                  >
+                    …
+                  </span>
+                );
+              }
+
+              const isCurrent = pagination.page === pageItem;
+
+              return (
+                <button
+                  key={pageItem}
+                  onClick={() => setPage(Number(pageItem))}
+                  className={`
+                    relative px-4 py-2 rounded-lg font-medium text-sm min-w-[40px] text-center transition-all duration-200
+                    ${
+                      isCurrent
+                        ? "bg-gradient-to-r from-purple-500 to-pink-600 text-white shadow-md shadow-purple-400/40 scale-105"
+                        : "bg-white/70 border border-gray-300/70 text-gray-700 hover:bg-purple-50 hover:border-purple-300 hover:text-purple-700 hover:shadow-sm"
+                    }
+                  `}
+                >
+                  {pageItem}
+                </button>
+              );
+            })}
           </div>
 
+          {/* Next */}
           <button
             onClick={() => setPage((p) => Math.min(pagination.totalPages, p + 1))}
-            disabled={!pagination.hasNext}
-            className="group relative inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-gray-100 to-gray-200 border-2 border-gray-300/50 text-gray-700 font-semibold text-sm shadow-md hover:shadow-lg hover:from-purple-500 hover:to-pink-600 hover:text-white hover:border-purple-400/50 hover:scale-[1.02] transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:from-gray-100 disabled:hover:to-gray-200 disabled:hover:text-gray-700 focus:outline-none focus:ring-4 focus:ring-purple-200/50"
+            disabled={!pagination.hasNext || pagination.page === pagination.totalPages}
+            className="group relative inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-gray-100 to-gray-200 border-2 border-gray-300/50 text-gray-700 font-semibold text-sm shadow-md hover:shadow-lg hover:from-purple-500 hover:to-pink-600 hover:text-white hover:border-purple-400/50 hover:scale-[1.02] transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-4 focus:ring-purple-200/50 min-w-[110px] justify-center"
           >
             Next
             <ChevronRightIcon className="w-4 h-4 group-hover:translate-x-0.5 transition-transform duration-300" />

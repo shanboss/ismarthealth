@@ -18,6 +18,9 @@ export type PatientQueue = {
   billing_status: number;
   is_sync: number;
   created_on: Date;
+  balance_amt?: number;
+  final_balance?: number;
+  balance_pymnt2?: number;
 };
 
 export type Patient = {
@@ -29,4 +32,7 @@ export type Patient = {
   settled: boolean;
   medical_num: string;
   patient_unique_id: string;
+  balance_amt: number;
+  final_balance: number;
+  balance_pymnt2: number;
 };

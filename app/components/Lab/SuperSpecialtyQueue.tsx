@@ -10,8 +10,7 @@ import {
   UserIcon,
 } from "@heroicons/react/24/outline";
 
-import { Row, DisplayRow  } from "../../config/lab/SuperSpecialityQueue";
-
+import { Row, DisplayRow } from "../../config/lab/SuperSpecialityQueue";
 
 export default function SuperSpecialtyQueue() {
   const router = useRouter();
@@ -37,14 +36,14 @@ export default function SuperSpecialtyQueue() {
           page: page.toString(),
           limit: "10",
         });
-        
+
         if (query.trim()) {
           params.append("search", query.trim());
         }
-        
+
         const response = await fetch(`/api/lab/superspecialty-queue?${params.toString()}`);
         const data = await response.json();
-        
+
         if (data.success) {
           setConsultations(data.data);
           setPagination(data.pagination);
@@ -56,7 +55,6 @@ export default function SuperSpecialtyQueue() {
       }
     }
 
-    // Debounce search to avoid too many API calls
     const timeoutId = setTimeout(() => {
       fetchConsultations();
     }, 300);
@@ -81,6 +79,42 @@ export default function SuperSpecialtyQueue() {
     }));
   }, [consultations]);
 
+  // Helper to generate page numbers with ellipsis
+  const generatePageNumbers = (current: number, total: number): (number | string)[] => {
+    const pages: (number | string)[] = [];
+    const maxVisible = 7; // adjust if you want more/fewer visible pages
+
+    if (total <= maxVisible) {
+      for (let i = 1; i <= total; i++) {
+        pages.push(i);
+      }
+      return pages;
+    }
+
+    pages.push(1);
+
+    if (current > 3) {
+      pages.push("...");
+    }
+
+    const start = Math.max(2, current - 2);
+    const end = Math.min(total - 1, current + 2);
+
+    for (let i = start; i <= end; i++) {
+      pages.push(i);
+    }
+
+    if (current < total - 2) {
+      pages.push("...");
+    }
+
+    if (total > 1) {
+      pages.push(total);
+    }
+
+    return pages;
+  };
+
   if (loading) {
     return (
       <div className="min-h-[400px] flex flex-col items-center justify-center py-12 px-6">
@@ -102,18 +136,18 @@ export default function SuperSpecialtyQueue() {
             </div>
             <div>
               <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-900 via-gray-800 to-indigo-900 bg-clip-text text-transparent">
-                  Super Speciality Consultation
+                Super Speciality Consultation
               </h1>
               <h6 className="text-sm bg-gradient-to-r from-gray-900 via-gray-800 to-purple-900 bg-clip-text text-transparent">
-                  View and manage super speciality consultations.
+                View and manage super speciality consultations.
               </h6>
               <p className="text-sm text-gray-600 mt-1 font-medium">
-                Showing <span className="font-bold text-indigo-600">{displayRows.length}</span> of{' '}
+                Showing <span className="font-bold text-indigo-600">{displayRows.length}</span> of{" "}
                 <span className="font-bold text-blue-600">{pagination.totalCount.toLocaleString()}</span> total consultations
               </p>
             </div>
           </div>
-          
+
           {/* Enhanced Search */}
           <div className="relative flex-1 max-w-sm">
             <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -183,7 +217,7 @@ export default function SuperSpecialtyQueue() {
                   <td className="px-6 py-3.5 text-gray-700 text-sm font-medium">{r.mobile}</td>
                   <td className="px-6 py-3.5 text-gray-600 text-sm">{r.email}</td>
                   <td className="px-6 py-3.5 text-gray-700 text-sm font-medium">{r.referredDate}</td>
-                  
+
                   {/* Action Button */}
                   <td className="px-4 py-3.5 text-center">
                     <button
@@ -197,7 +231,7 @@ export default function SuperSpecialtyQueue() {
                   </td>
                 </tr>
               ))}
-              
+
               {displayRows.length === 0 && (
                 <tr>
                   <td colSpan={7} className="px-12 py-16 text-center">
@@ -210,10 +244,9 @@ export default function SuperSpecialtyQueue() {
                           {query ? "No matching consultations found" : "No consultations in queue"}
                         </h3>
                         <p className="text-gray-600 text-sm">
-                          {query 
-                            ? `No consultations match "${query}". Try different search terms.` 
-                            : "Superspecialty queue is currently empty. Check back later."
-                          }
+                          {query
+                            ? `No consultations match "${query}". Try different search terms.`
+                            : "Superspecialty queue is currently empty. Check back later."}
                         </p>
                       </div>
                     </div>
@@ -225,27 +258,59 @@ export default function SuperSpecialtyQueue() {
         </div>
       </div>
 
-      {/* Enhanced Pagination */}
+      {/* Enhanced Pagination with page numbers */}
       {displayRows.length > 0 && (
-        <div className="flex items-center justify-center gap-3 p-6 bg-gradient-to-r from-gray-50/80 to-white/80 backdrop-blur-xl rounded-2xl border border-gray-200/50 shadow-lg">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-6 bg-gradient-to-r from-gray-50/80 to-white/80 backdrop-blur-xl rounded-2xl border border-gray-200/50 shadow-lg">
+          {/* Previous */}
           <button
             onClick={() => setPage((p) => Math.max(1, p - 1))}
-            disabled={!pagination.hasPrev}
-            className="group relative inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-gray-100 to-gray-200 border-2 border-gray-300/50 text-gray-700 font-semibold text-sm shadow-md hover:shadow-lg hover:from-indigo-500 hover:to-blue-600 hover:text-white hover:border-indigo-400/50 hover:scale-[1.02] transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:from-gray-100 disabled:hover:to-gray-200 disabled:hover:text-gray-700 focus:outline-none focus:ring-4 focus:ring-indigo-200/50"
+            disabled={!pagination.hasPrev || pagination.page === 1}
+            className="group relative inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-gray-100 to-gray-200 border-2 border-gray-300/50 text-gray-700 font-semibold text-sm shadow-md hover:shadow-lg hover:from-indigo-500 hover:to-blue-600 hover:text-white hover:border-indigo-400/50 hover:scale-[1.02] transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-4 focus:ring-indigo-200/50 min-w-[110px] justify-center"
           >
             <ChevronLeftIcon className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform duration-300" />
             Previous
           </button>
 
-          <div className="px-6 py-2.5 bg-white/60 backdrop-blur-sm rounded-xl border border-gray-200/50 shadow-md font-semibold text-base text-gray-900 min-w-[140px] text-center">
-            Page <span className="text-indigo-600 font-bold text-lg">{pagination.page}</span> of{' '}
-            <span className="text-blue-600 font-bold text-lg">{pagination.totalPages}</span>
+          {/* Page numbers */}
+          <div className="flex items-center gap-1.5 flex-wrap justify-center">
+            {generatePageNumbers(pagination.page, pagination.totalPages).map((pageItem, idx) => {
+              if (pageItem === "...") {
+                return (
+                  <span
+                    key={`ellipsis-${idx}`}
+                    className="px-3 py-2 text-gray-500 font-medium select-none"
+                  >
+                    …
+                  </span>
+                );
+              }
+
+              const isCurrent = pagination.page === pageItem;
+
+              return (
+                <button
+                  key={pageItem}
+                  onClick={() => setPage(Number(pageItem))}
+                  className={`
+                    relative px-4 py-2 rounded-lg font-medium text-sm min-w-[40px] text-center transition-all duration-200
+                    ${
+                      isCurrent
+                        ? "bg-gradient-to-r from-indigo-500 to-blue-600 text-white shadow-md shadow-indigo-400/40 scale-105"
+                        : "bg-white/70 border border-gray-300/70 text-gray-700 hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-700 hover:shadow-sm"
+                    }
+                  `}
+                >
+                  {pageItem}
+                </button>
+              );
+            })}
           </div>
 
+          {/* Next */}
           <button
             onClick={() => setPage((p) => Math.min(pagination.totalPages, p + 1))}
-            disabled={!pagination.hasNext}
-            className="group relative inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-gray-100 to-gray-200 border-2 border-gray-300/50 text-gray-700 font-semibold text-sm shadow-md hover:shadow-lg hover:from-indigo-500 hover:to-blue-600 hover:text-white hover:border-indigo-400/50 hover:scale-[1.02] transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:from-gray-100 disabled:hover:to-gray-200 disabled:hover:text-gray-700 focus:outline-none focus:ring-4 focus:ring-indigo-200/50"
+            disabled={!pagination.hasNext || pagination.page === pagination.totalPages}
+            className="group relative inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-gray-100 to-gray-200 border-2 border-gray-300/50 text-gray-700 font-semibold text-sm shadow-md hover:shadow-lg hover:from-indigo-500 hover:to-blue-600 hover:text-white hover:border-indigo-400/50 hover:scale-[1.02] transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-4 focus:ring-indigo-200/50 min-w-[110px] justify-center"
           >
             Next
             <ChevronRightIcon className="w-4 h-4 group-hover:translate-x-0.5 transition-transform duration-300" />

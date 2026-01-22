@@ -69,13 +69,6 @@ export default function BillingPage({ params }: BillingPageProps) {
   const [advancePayment, setAdvancePayment] = useState<string>('');
   const [savingChanges, setSavingChanges] = useState(false);
   const [saveMessage, setSaveMessage] = useState<{ type: string; text: string } | null>(null);
-  const [enableAdvAmount, setEnableAdvAmount] = useState(false);
-  const [balAmountState, setBalAmountState] = useState(0);
-
-  const [discountReadOnly, setDiscountReadOnly] = useState(false);
-  const [advPaymentReadOnly, setAdvPaymentReadOnly] = useState(false);
-  const [showSaveButton, setShowSaveButton] = useState(true);
-  const [firstTimeBilling, setFirstTimeBilling] = useState(true);
 
   useEffect(() => {
     const resolveParams = async () => {
@@ -91,45 +84,16 @@ export default function BillingPage({ params }: BillingPageProps) {
     const fetchBillingData = async () => {
       try {
         setLoading(true);
-        let { patient_id, medical_num } = resolvedParams;
-        console.log("Fetching billing data for:", { patient_id, medical_num });
-        patient_id = patient_id.trim();
-        medical_num = medical_num.trim();
-        const response = await fetch(`/api/lab/billing?patient_id=${patient_id}&medical_num=${medical_num}`);
+        const response = await fetch(
+          `/api/lab/billing?patient_id=${resolvedParams.patient_id}&medical_num=${resolvedParams.medical_num}`
+        );
 
         if (!response.ok) {
           throw new Error('Failed to fetch billing data');
         }
 
         const result = await response.json();
-        console.log("result==", result.data);
         setPatientData(result.data);
-        console.log("Billing Data fetched successfully=", result.data.billingDetails);
-
-        if(result.data.billingDetails != null ){
-          const billingDetails = result.data.billingDetails;
-          const advAmt = billingDetails.adv_amt || 0;
-          const netAmt = billingDetails.net_amt || 0;
-          const balAmt = billingDetails.balance_amt || 0;
-          const balPymnt2 = billingDetails.balance_pymnt2 || 0;
-          console.log("balPymnt2==", balPymnt2);
-          console.log("balAmt==", balAmt);
-          setFirstTimeBilling(false);
-          setAdvPaymentReadOnly(balAmt == 0);
-          setShowSaveButton((balAmt == 0 || balAmt == 0.00) ? false : (balPymnt2 == balAmt? false : true));
-          setDiscountReadOnly(true);
-          console.log("advAmt==", advAmt);
-          console.log("netAmt==", netAmt);
-          setDiscountValue(billingDetails.discount?.toString() || '');
-          setShowBillingControls(true);
-          console.log("ShowBillingControls==", showBillingControls);
-          setDiscountEnabled(true)
-          setEnableAdvAmount(false);
-          setAdvancePayment( parseFloat(balAmt.toString()) > 0 ? balAmt?.toString() || '' : advAmt?.toString() || '');
-          setBalAmountState(balAmt);
-
-
-        }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'An error occurred');
       } finally {
@@ -144,10 +108,8 @@ export default function BillingPage({ params }: BillingPageProps) {
   const totalAmount = patientData?.patientTestDetails.reduce((sum, test) => sum + test.price, 0) || 0;
   const discountAmount = discountEnabled ? (totalAmount * (parseFloat(discountValue) || 0)) / 100 : 0;
   const netAmount = totalAmount - discountAmount;
-  //setNetAmountState(netAmount);
-  console.log("balAmountState==", balAmountState);
   const advancePaymentNum = parseFloat(advancePayment) || 0;
-  const balanceAmount = (parseFloat(balAmountState.toString()) > 0)? 0 : Math.max(0, netAmount - advancePaymentNum);
+  const balanceAmount = Math.max(0, netAmount - advancePaymentNum);
 
   const handleDiscountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
@@ -196,8 +158,7 @@ export default function BillingPage({ params }: BillingPageProps) {
         net_amount: netAmount,
         advance_payment: advancePaymentNum,
         balance_amount: balanceAmount,
-        billing_status: 'Approved',
-        firstTimeBilling
+        billing_status: 'Approved'
       };
 
       const response = await fetch('/api/lab/billing/', {
@@ -525,7 +486,7 @@ export default function BillingPage({ params }: BillingPageProps) {
                         </td>
                       </tr>
                     ))
-                  ) : ( 
+                  ) : (
                     <tr>
                       <td colSpan={6} className="p-8 text-center text-slate-400 italic">
                         No tests assigned to this medical number.
@@ -572,11 +533,10 @@ export default function BillingPage({ params }: BillingPageProps) {
                             checked={discountEnabled}
                             onChange={(e) => setDiscountEnabled(e.target.checked)}
                             className="w-5 h-5 text-blue-600 rounded"
-                            disabled={enableAdvAmount}
                           />
                           <span className="text-sm font-bold text-slate-700 uppercase">Apply Discount %</span>
                         </label>
-                        {discountEnabled && !enableAdvAmount  && (
+                        {discountEnabled && (
                           <div className="flex items-center gap-2">
                             <input
                               type="text"
@@ -584,14 +544,12 @@ export default function BillingPage({ params }: BillingPageProps) {
                               onChange={handleDiscountChange}
                               placeholder="0.00"
                               className="w-20 px-3 py-1.5 border border-slate-300 rounded text-sm font-semibold text-center"
-                              disabled={enableAdvAmount}
-                              readOnly={discountReadOnly}
                             />
                             <span className="text-sm font-bold text-slate-700">%</span>
                           </div>
                         )}
                       </div>
-                      {discountEnabled  && (
+                      {discountEnabled && (
                         <div className="text-right text-sm text-slate-600 pt-2 border-t border-slate-200">
                           Discount Amount: <span className="font-bold text-slate-900 ml-2">${discountAmount.toFixed(2)}</span>
                         </div>
@@ -615,17 +573,15 @@ export default function BillingPage({ params }: BillingPageProps) {
                         <input
                           type="text"
                           value={advancePayment}
-                          disabled={enableAdvAmount} // Disable the input if netAmount is 0
                           onChange={handleAdvancePaymentChange}
                           placeholder={`0.00 (Max: ${netAmount.toFixed(2)})`}
-                          readOnly={advPaymentReadOnly}
                           className="w-full px-4 py-2 border border-slate-300 rounded text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
                         <p className="text-xs text-slate-500 mt-1">Enter amount up to ${netAmount.toFixed(2)}</p>
                       </label>
                     </div>
 
-                    {saveMessage && !enableAdvAmount && (
+                    {saveMessage && (
                       <div
                         className={`p-3 rounded text-sm font-medium border ${
                           saveMessage.type === 'success'
@@ -637,7 +593,6 @@ export default function BillingPage({ params }: BillingPageProps) {
                       </div>
                     )}
 
-                    {showSaveButton && (
                     <div className="flex gap-4 print:hidden">
                       <button
                         onClick={handleSaveChanges}
@@ -653,7 +608,7 @@ export default function BillingPage({ params }: BillingPageProps) {
                       >
                         Billing Approved
                       </button>
-                    </div>)}
+                    </div>
                   </>
                 )}
               </div>
