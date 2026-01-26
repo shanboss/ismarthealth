@@ -1,4 +1,3 @@
-// app/lab/bill/[patient_id]/[medical_num]/page.tsx
 'use client';
 
 import React, { useEffect, useState, useRef } from 'react';
@@ -41,8 +40,9 @@ interface TestDetail {
   date: string;
   time: string;
   instructions: string;
-  price: number;
   billingStatus: string;
+  status: string;
+  price: string;
 }
 
 interface BillingData {
@@ -60,6 +60,8 @@ export default function SampleDetailsPage({ params }: BillingPageProps) {
     patient_id: string;
     medical_num: string;
   } | null>(null);
+  const [samplesCollected, setSamplesCollected] = useState<Set<number>>(new Set());
+  const [samplesApproved, setSamplesApproved] = useState<Set<number>>(new Set());
   const billContentRef = useRef<HTMLDivElement>(null);
 
   // Resolve URL parameters
@@ -97,6 +99,26 @@ export default function SampleDetailsPage({ params }: BillingPageProps) {
 
     fetchBillingData();
   }, [resolvedParams]);
+
+  const handleSamplesCollected = (index: number) => {
+    setSamplesCollected(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(index)) {
+        newSet.delete(index);
+      } else {
+        newSet.add(index);
+      }
+      return newSet;
+    });
+  };
+
+  const handleAddResults = (index: number) => {
+    setSamplesApproved(prev => {
+      const newSet = new Set(prev);
+      newSet.add(index);
+      return newSet;
+    });
+  };
 
   const handleDownloadPDF = async () => {
     if (!billContentRef.current) return;
@@ -241,9 +263,9 @@ export default function SampleDetailsPage({ params }: BillingPageProps) {
           </button>
         </div>
 
-        {/* ─────────────────────────────────────────────────── */}
+        {/* ─────────────────────────────────────────────────────────────────────── */}
         {/* Everything below is included in PDF and Print     */}
-        {/* ─────────────────────────────────────────────────── */}
+        {/* ─────────────────────────────────────────────────────────────────────── */}
 
         <div ref={billContentRef} className="bg-white print:bg-white">
 
@@ -354,9 +376,9 @@ export default function SampleDetailsPage({ params }: BillingPageProps) {
                     <th className="p-3 text-xs font-bold text-slate-700 uppercase w-12">S.No</th>
                     <th className="p-3 text-xs font-bold text-slate-700 uppercase">Tests</th>
                     <th className="p-3 text-xs font-bold text-slate-700 uppercase text-center w-32">Schedule</th>
-                    <th className="p-3 text-xs font-bold text-slate-700 uppercase w-40">Instructions</th>
+                    <th className="p-3 text-xs font-bold text-slate-700 uppercase w-40">Price</th>
                     <th className="p-3 text-xs font-bold text-slate-700 uppercase text-center w-24">Status</th>
-                    <th className="p-3 text-xs font-bold text-slate-700 uppercase text-center w-32 print:hidden">Results</th>
+                    <th className="p-3 text-xs font-bold text-slate-700 uppercase text-center w-40 print:hidden">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-300 print:divide-y print:divide-gray-400">
@@ -369,27 +391,40 @@ export default function SampleDetailsPage({ params }: BillingPageProps) {
                           <div className="text-xs font-medium text-slate-700">{test.date}</div>
                           <div className="text-[9px] text-slate-500">{test.time}</div>
                         </td>
-                        <td className="p-3 text-xs text-slate-600">{test.instructions}</td>
+                        <td className="p-3 text-xs text-slate-600">{test.price}</td>
                         <td className="p-3 text-center">
                           <span
                             className={`inline-block px-2 py-1 rounded text-[9px] font-bold uppercase ${
-                              test.billingStatus === 'Approved'
+                              test.status === 'Approved'
                                 ? 'bg-emerald-100 text-emerald-700'
                                 : 'bg-rose-100 text-rose-700'
                             }`}
                           >
-                            {test.billingStatus}
+                            {test.status}
                           </span>
                         </td>
-                        <td className="p-3 text-center print:hidden">
-                          <Link
-                            href={`/lab/AddReport/${resolvedParams?.medical_num}/${resolvedParams?.patient_id}`}
-                            className="inline-flex items-center gap-1 bg-green-600 hover:bg-green-700 text-white font-bold py-1.5 px-2.5 rounded text-[10px] transition-all"
-                            title="Add test results"
+                        <td className="p-3 text-center print:hidden space-y-2">
+                          <button
+                            onClick={() => handleSamplesCollected(index)}
+                            className={`w-full inline-flex items-center justify-center gap-1 font-bold py-1.5 px-2.5 rounded text-[10px] transition-all ${
+                              samplesCollected.has(index)
+                                ? 'bg-red-700 hover:bg-red-800 text-white'
+                                : 'bg-red-600 hover:bg-red-700 text-white'
+                            }`}
+                            title="Mark sample as collected"
                           >
-                            <Plus size={14} />
-                            Add Results
-                          </Link>
+                            {samplesCollected.has(index) ? "Sample Approved" : "Approve Sample"}
+                          </button>
+                          {samplesCollected.has(index) && (
+                            <Link
+                              href={`/lab/AddReport/${resolvedParams?.medical_num}/${resolvedParams?.patient_id}`}
+                              className="w-full inline-flex items-center justify-center gap-1 bg-green-600 hover:bg-green-700 text-white font-bold py-1.5 px-2.5 rounded text-[10px] transition-all"
+                              title="Add test results"
+                            >
+                              <Plus size={14} />
+                              Add Results
+                            </Link>
+                          )}
                         </td>
                       </tr>
                     ))

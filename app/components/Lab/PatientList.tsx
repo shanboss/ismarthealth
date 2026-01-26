@@ -84,6 +84,7 @@ export default function PatientList() {
       balance_amt: p.balance_amt || 0,
       final_balance: p.final_balance || 0,
       balance_pymnt2: p.balance_pymnt2 || 0,
+      billing_status: p.billing_status,
     }));
   }, [patients]);
 
@@ -245,22 +246,31 @@ export default function PatientList() {
                       </button>
                     </td>
                     <td className="px-4 py-3.5 text-center">
-                      {p.balance_amt}==
-                      {p.balance_pymnt2 } <br />
-                      <button
-                        title="Samples"
-                        onClick={() => router.push(`/lab/samples/${p.patient_unique_id}/${p.medical_num}`)}
-                        disabled={ parseFloat(p.balance_amt.toString()) == 0.00 || parseFloat(p.balance_amt.toString()) == 0 || ((parseFloat(p.balance_amt.toString()) == parseFloat(p.balance_pymnt2.toString())) && parseFloat(p.balance_amt.toString()) > 0 && parseFloat(p.balance_pymnt2.toString()) > 0 ) ? false : true}
-                        className="group/btn relative p-2.5 rounded-xl bg-gradient-to-br from-emerald-400/90 to-teal-500/90 text-white shadow-md hover:shadow-lg hover:shadow-emerald-400/30 hover:scale-105 transition-all duration-300 focus:outline-none focus:ring-4 focus:ring-emerald-200/50 border border-emerald-300/50 hover:border-emerald-400/50"
-                      >
-                        <BeakerIcon className="h-4 w-4 drop-shadow-sm group-hover/btn:rotate-12" />
-                        <div className="absolute inset-0 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl opacity-0 group-hover/btn:opacity-100 transition-opacity duration-300 blur-sm scale-110" />
-                      </button>
+                      {p.billing_status == 2 ? (
+                        /* Active Button */
+                        <button
+                          title="Samples"
+                          onClick={() => router.push(`/lab/samples/${p.patient_unique_id}/${p.medical_num}`)}
+                          className="group/btn relative p-2.5 rounded-xl bg-gradient-to-br from-emerald-400/90 to-teal-500/90 text-white shadow-md hover:shadow-lg hover:shadow-emerald-400/30 hover:scale-105 transition-all duration-300 focus:outline-none focus:ring-4 focus:ring-emerald-200/50 border border-emerald-300/50 hover:border-emerald-400/50"
+                        >
+                          <BeakerIcon className="h-4 w-4 drop-shadow-sm group-hover/btn:rotate-12" />
+                          <div className="absolute inset-0 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl opacity-0 group-hover/btn:opacity-100 transition-opacity duration-300 blur-sm scale-110 -z-10" />
+                        </button>
+                      ) : (
+                        /* Pending Button (Same Size, Different Color) */
+                        <button
+                          disabled
+                          title="Billing Pending"
+                          className="p-2.5 rounded-xl bg-amber-50 text-amber-400 border border-amber-200 cursor-not-allowed shadow-sm"
+                        >
+                          <BeakerIcon className="h-4 w-4 opacity-60" />
+                        </button>
+                      )}
                     </td>
                     <td className="px-4 py-3.5 text-center">
                       <button
                         title="Reports"
-                        onClick={() => router.push(`/lab/reports/${p.billNo}`)}
+                        onClick={() => router.push(`/lab/reports/${p.patient_unique_id}/${p.medical_num}`)}
                         className="group/btn relative p-2.5 rounded-xl bg-gradient-to-br from-blue-400/90 to-indigo-500/90 text-white shadow-md hover:shadow-lg hover:shadow-blue-400/30 hover:scale-105 transition-all duration-300 focus:outline-none focus:ring-4 focus:ring-blue-200/50 border border-blue-300/50 hover:border-blue-400/50"
                       >
                         <DocumentTextIcon className="h-4 w-4 drop-shadow-sm group-hover/btn:rotate-12" />

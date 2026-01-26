@@ -74,8 +74,9 @@ export default function ReportUploadPage({ params }: ReportUploadPageProps) {
     const fetchPatientData = async () => {
       try {
         setLoading(true);
+        console.log('Fetching patient data with params:', resolvedParams);
         const response = await fetch(
-          `/api/lab/patient?patient_id=${resolvedParams.patient_id}&medical_num=${resolvedParams.medical_num}`
+          `/api/lab/billing?patient_id=${resolvedParams.patient_id}&medical_num=${resolvedParams.medical_num}`
         );
 
         if (!response.ok) {

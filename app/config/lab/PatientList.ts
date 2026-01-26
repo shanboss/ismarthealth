@@ -35,4 +35,5 @@ export type Patient = {
   balance_amt: number;
   final_balance: number;
   balance_pymnt2: number;
+  billing_status: number;
 };

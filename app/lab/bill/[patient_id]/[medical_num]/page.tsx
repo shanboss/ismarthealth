@@ -4,6 +4,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { format } from 'date-fns';
 import { Download, Printer } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 interface labInfo {
   laboratory_name: string;
@@ -60,6 +61,7 @@ export default function BillingPage({ params }: BillingPageProps) {
     medical_num: string;
   } | null>(null);
   const billContentRef = useRef<HTMLDivElement>(null);
+  const router = useRouter();
 
   // Billing state management
   const [isApproved, setIsApproved] = useState(false);
@@ -115,7 +117,7 @@ export default function BillingPage({ params }: BillingPageProps) {
           console.log("balPymnt2==", balPymnt2);
           console.log("balAmt==", balAmt);
           setFirstTimeBilling(false);
-          setAdvPaymentReadOnly(balAmt == 0);
+          setAdvPaymentReadOnly(balAmt == 0 || balAmt == 0.00 ? true : (!(balPymnt2 == balAmt)? true : false));
           setShowSaveButton((balAmt == 0 || balAmt == 0.00) ? false : (balPymnt2 == balAmt? false : true));
           setDiscountReadOnly(true);
           console.log("advAmt==", advAmt);
@@ -127,7 +129,7 @@ export default function BillingPage({ params }: BillingPageProps) {
           setEnableAdvAmount(false);
           setAdvancePayment( parseFloat(balAmt.toString()) > 0 ? balAmt?.toString() || '' : advAmt?.toString() || '');
           setBalAmountState(balAmt);
-
+         
 
         }
       } catch (err) {
@@ -211,6 +213,7 @@ export default function BillingPage({ params }: BillingPageProps) {
       console.log('Billing changes saved successfully=', result);
 
       setSaveMessage({ type: 'success', text: 'Billing changes saved successfully!' });
+      setLoading(true);
       setTimeout(() => handleBillingApproved(), 2000);
     } catch (err) {
       setSaveMessage({
@@ -218,7 +221,12 @@ export default function BillingPage({ params }: BillingPageProps) {
         text: err instanceof Error ? err.message : 'Failed to save changes'
       });
     } finally {
+
       setSavingChanges(false);
+        setTimeout(() => { 
+          setLoading(false);
+          router.refresh();
+        },2500);
     }
   };
 
@@ -605,13 +613,23 @@ export default function BillingPage({ params }: BillingPageProps) {
                       </div>
                       <div className="border border-amber-300 print:border print:border-gray-400 p-4 rounded bg-amber-50">
                         <p className="text-xs font-bold text-amber-700 uppercase mb-1">Balance Due</p>
-                        <p className="text-xl font-black font-mono text-amber-900">${balanceAmount.toFixed(2)}</p>
+                        <p className="text-xl font-black font-mono text-amber-900">
+                          {
+                            advPaymentReadOnly? `$${advancePayment}` : `$${balanceAmount.toFixed(2)}`
+                          }
+
+
+                        </p>
                       </div>
                     </div>
-
+                    
+                    {showSaveButton && (
                     <div className="border border-slate-300 print:border print:border-gray-400 p-4 rounded space-y-2">
                       <label className="block">
-                        <p className="text-sm font-bold text-slate-700 uppercase mb-2">Advance Payment</p>
+                        <p className="text-sm font-bold text-slate-700 uppercase mb-2">
+                          {advPaymentReadOnly? 'Balance Pending': 'Advance Payment'}
+                         
+                        </p>
                         <input
                           type="text"
                           value={advancePayment}
@@ -624,6 +642,10 @@ export default function BillingPage({ params }: BillingPageProps) {
                         <p className="text-xs text-slate-500 mt-1">Enter amount up to ${netAmount.toFixed(2)}</p>
                       </label>
                     </div>
+                    )
+                    
+                    }
+
 
                     {saveMessage && !enableAdvAmount && (
                       <div
