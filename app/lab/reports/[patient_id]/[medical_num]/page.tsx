@@ -4,7 +4,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { format } from 'date-fns';
 import { Download, Printer } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+//import { useRouter } from 'next/navigation';
 
 interface ReportData {
   laboratory: {
@@ -21,6 +21,7 @@ interface ReportData {
   };
   tests: Array<{
     slNo: number;
+    investigationName: string;
     testName: string;
     date: string;
     time: string;
@@ -29,6 +30,7 @@ interface ReportData {
     referenceRange: string;
     reviewApprove: string;
     reportStatus: string;
+    sampleCollectedId: number;
   }>;
 }
 
@@ -48,7 +50,7 @@ export default function ReportsPage({ params }: ReportsPageProps) {
     medical_num: string;
   } | null>(null);
   const reportContentRef = useRef<HTMLDivElement>(null);
-  const router = useRouter();
+  //const router = useRouter();
 
   useEffect(() => {
     const resolveParams = async () => {
@@ -222,38 +224,70 @@ export default function ReportsPage({ params }: ReportsPageProps) {
             </div>
           </div>
 
-          {/* TEST DETAILS */}
+          {/* TEST DETAILS – GROUPED BY INVESTIGATION NAME */}
           <div className="mt-6">
             <h3 className="text-base font-bold uppercase text-slate-900 mb-3">Test Details</h3>
             <div className="overflow-x-auto border border-slate-300 rounded-lg">
               <table className="w-full border-collapse text-xs">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200">
-                    <th className="px-3 py-2 text-left font-bold uppercase text-slate-700">S.No</th>
+                    <th className="px-3 py-2 text-left font-bold uppercase text-slate-700 w-12">S.No</th>
                     <th className="px-3 py-2 text-left font-bold uppercase text-slate-700">Test Name</th>
-                    <th className="px-3 py-2 text-left font-bold uppercase text-slate-700">Date</th>
-                    <th className="px-3 py-2 text-left font-bold uppercase text-slate-700">Time</th>
+                    <th className="px-3 py-2 text-left font-bold uppercase text-slate-700 w-28">Date</th>
+                    <th className="px-3 py-2 text-left font-bold uppercase text-slate-700 w-24">Time</th>
                     <th className="px-3 py-2 text-left font-bold uppercase text-slate-700">Result</th>
-                    <th className="px-3 py-2 text-left font-bold uppercase text-slate-700">Unit</th>
+                    <th className="px-3 py-2 text-left font-bold uppercase text-slate-700 w-20">Unit</th>
                     <th className="px-3 py-2 text-left font-bold uppercase text-slate-700">Reference Range</th>
-                    <th className="px-3 py-2 text-left font-bold uppercase text-slate-700">Review</th>
-                    <th className="px-3 py-2 text-left font-bold uppercase text-slate-700">Status</th>
+                    <th className="px-3 py-2 text-left font-bold uppercase text-slate-700 w-24">Review</th>
+                    <th className="px-3 py-2 text-left font-bold uppercase text-slate-700 w-24">Status</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {tests.map((test) => (
-                    <tr key={test.slNo} className="border-b border-slate-100 last:border-b-0 hover:bg-slate-50">
-                      <td className="px-3 py-2 font-medium text-slate-900">{test.slNo}</td>
-                      <td className="px-3 py-2 font-medium text-slate-900">{test.testName}</td>
-                      <td className="px-3 py-2 text-slate-600">{test.date}</td>
-                      <td className="px-3 py-2 text-slate-600">{test.time}</td>
-                      <td className="px-3 py-2 text-slate-600">{test.sampleResult}</td>
-                      <td className="px-3 py-2 text-slate-600">{test.unit}</td>
-                      <td className="px-3 py-2 text-slate-600">{test.referenceRange}</td>
-                      <td className="px-3 py-2 text-slate-600">{test.reviewApprove}</td>
-                      <td className="px-3 py-2 text-slate-600">{test.reportStatus}</td>
-                    </tr>
-                  ))}
+                  {(() => {
+                    // Group tests by investigationName
+                    const grouped = tests.reduce((acc, test) => {
+                      const key = test.investigationName.trim();
+                      if (!acc[key]) acc[key] = [];
+                      acc[key].push(test);
+                      return acc;
+                    }, {} as Record<string, typeof tests>);
+
+                    return Object.entries(grouped).map(([investigationName, groupTests]) => (
+                      <React.Fragment key={investigationName}>
+                        {/* Group header row */}
+                        <tr className="bg-slate-100/70 border-y border-slate-300">
+                          <td 
+                            colSpan={9}
+                            className="px-4 py-2.5 font-bold text-slate-800 uppercase tracking-wide text-sm"
+                          >
+                            {investigationName}
+                          </td>
+                        </tr>
+
+                        {/* Tests in this group */}
+                        {groupTests.map((test) => (
+                          <tr 
+                            key={test.slNo} 
+                            className="border-b border-slate-100 last:border-b-0 hover:bg-slate-50"
+                          >
+                            <td className="px-3 py-2 font-medium text-slate-900">{test.slNo}</td>
+                            <td className="px-3 py-2 font-medium text-slate-900">{test.testName}</td>
+                            <td className="px-3 py-2 text-slate-600">{test.date}</td>
+                            <td className="px-3 py-2 text-slate-600">{test.time}</td>
+                            <td className="px-3 py-2 font-medium text-slate-700">{test.sampleResult}</td>
+                            <td className="px-3 py-2 text-slate-600">{test.unit}</td>
+                            <td className="px-3 py-2 text-slate-600">{test.referenceRange}</td>
+                            <td className="px-3 py-2 text-slate-600">{test.reviewApprove}</td>
+                            <td className="px-3 py-2 text-slate-600">
+                              
+                              {test.sampleCollectedId == 2 ? 
+                              <button className={`w-full inline-flex items-center justify-center gap-1 font-bold py-1.5 px-2.5 rounded text-[10px] transition-all bg-red-600 hover:bg-red-700 text-white`}> Available </button> : test.reportStatus}
+                            </td>
+                          </tr>
+                        ))}
+                      </React.Fragment>
+                    ));
+                  })()}
                 </tbody>
               </table>
             </div>
