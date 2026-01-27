@@ -22,6 +22,8 @@ interface TestRecordRow extends RowDataPacket {
   instruction: string | null;
   sample_collected_id: number | null;
   bill_id: number | null;
+  labapproval_id: number | null;
+  investigation_id: number | null;
 }
 
 
@@ -72,13 +74,13 @@ export async function POST(request: NextRequest) {
       const [result] = await connection.execute(
         `UPDATE referral_patient_test_details 
          SET 
-           sample_collected_id = 2,
+           sample_collected_id = 1,
            sample_datetime = ?
          WHERE 
            patient_unique_id = ? 
            AND (medical_num = ? OR medical_num = ?)
            AND laboratory_tests = ?
-           AND (sample_collected_id IS NULL OR sample_collected_id != 2)`,
+           AND (sample_collected_id IS NULL OR sample_collected_id != 1)`,
         [now, patient_id, medicalNumClean, medicalNumSpecial, testId]
       );
 
@@ -297,6 +299,8 @@ export async function GET(request: NextRequest) {
       phyAdvice: record.phy_advice || null,
       sampleCollectedId: record.sample_collected_id !== null ? Number(record.sample_collected_id) : null,
       sampleDateTime: record.sample_datetime ? new Date(record.sample_datetime) : null,
+      labapprovalId: record.labapproval_id !== null ? Number(record.labapproval_id) : null,
+      investigationId: record.investigation_id !== null ? Number(record.investigation_id) : null,
     }));
     console.log("Mapped Patient Test Details:", patientTestDetails);
     // 5. Fetch laboratory details

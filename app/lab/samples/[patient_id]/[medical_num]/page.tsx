@@ -44,8 +44,10 @@ interface TestDetail {
   billingStatus: string;
   status: string;
   price: string;
-  sampleCollectedId?: number | null;
+  sampleCollectedId?: number | 0;
   billingId: number | null;
+  labapprovalId?: number | null;
+  investigationId?: number | null;
 }
 
 interface BillingData {
@@ -110,7 +112,7 @@ export default function SampleDetailsPage({ params }: BillingPageProps) {
     const test = patientData.patientTestDetails[index];
 
     // If sample is already collected (sampleCollectedId == 2), do nothing
-    if (test.sampleCollectedId == 2) {
+    if ((test.sampleCollectedId ?? 0) >= 1) {
       console.log("Sample already marked as collected");
       return;
     }
@@ -473,23 +475,24 @@ export default function SampleDetailsPage({ params }: BillingPageProps) {
                             onClick={() => handleSamplesCollected(index)}
                             disabled={isUpdating === index || test.sampleCollectedId == 2}
                             className={`w-full inline-flex items-center justify-center gap-1 font-bold py-1.5 px-2.5 rounded text-[10px] transition-all ${
-                              test.sampleCollectedId == 2
+                              test.sampleCollectedId ?? 0 >= 1
                                 ? 'bg-green-700 text-white cursor-not-allowed opacity-75'
                                 : isUpdating === index
                                 ? 'bg-gray-500 text-white cursor-wait'
                                 : 'bg-red-600 hover:bg-red-700 text-white'
                             }`}
-                            title={test.sampleCollectedId == 2 ? "Sample already approved" : "Mark sample as collected"}
+                            title={test.sampleCollectedId ?? 0 >= 1 ? "Sample already approved" : "Mark sample as collected"}
                           >
                             {isUpdating === index
                               ? "Updating..."
-                              : test.sampleCollectedId == 2
+                              : test.sampleCollectedId ?? 0 >= 1
                               ? "Sample Approved"
                               : "Approve Sample"}
                           </button>
-                          {samplesCollected.has(index) && test.sampleCollectedId == 2 && (
+                          {(test.sampleCollectedId ?? 0 >= 1) && (
+                            
                             <Link
-                              href={`/lab/AddReport/${resolvedParams?.medical_num}/${resolvedParams?.patient_id}`}
+                              href={`/lab/AddReport/${resolvedParams?.medical_num}/${resolvedParams?.patient_id}/${test.investigationId}/${test.labapprovalId}/${test.billingId}/${test.sampleCollectedId}`}
                               className="w-full inline-flex items-center justify-center gap-1 bg-green-600 hover:bg-green-700 text-white font-bold py-1.5 px-2.5 rounded text-[10px] transition-all"
                               title="Add test results"
                             >

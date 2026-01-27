@@ -4,7 +4,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { ArrowLeft, Upload, FileCheck, AlertCircle, X } from 'lucide-react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 interface ReportUploadPageProps {
   params: Promise<{
@@ -33,6 +33,15 @@ interface UploadedFile {
   reportType: string;
 }
 
+interface PassedData {
+  patient_id?: string;
+  medical_num?: string;
+  investigation_id?: string;
+  labapproval_id?: string;
+  sample_collected_id?: string;
+  billing_id?: string;
+}
+
 const REPORT_TYPES: ReportType[] = [
   { id: 'mri_brain', name: 'MRI Brain with Contrast', description: 'Brain MRI scan report' },
   { id: 'mri_spine', name: 'MRI Spine', description: 'Spine MRI scan report' },
@@ -45,10 +54,16 @@ const REPORT_TYPES: ReportType[] = [
 
 export default function ReportUploadPage({ params }: ReportUploadPageProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  
   const [resolvedParams, setResolvedParams] = useState<{
     medical_num: string;
     patient_id: string;
   } | null>(null);
+  
+  // State for the 6 passed variables
+  const [passedData, setPassedData] = useState<PassedData>({});
+  
   const [patientInfo, setPatientInfo] = useState<PatientInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -58,14 +73,41 @@ export default function ReportUploadPage({ params }: ReportUploadPageProps) {
   const [notes, setNotes] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // 1. Resolve URL parameters
+  // 1. Resolve URL parameters and get passed data from query params
   useEffect(() => {
     const resolveParams = async () => {
       const resolved = await params;
       setResolvedParams(resolved);
+      
+      // Extract the 6 passed variables from query params
+      const patient_id = searchParams.get('patient_id') || resolved.patient_id;
+      const medical_num = searchParams.get('medical_num') || resolved.medical_num;
+      const investigation_id = searchParams.get('investigation_id');
+      const labapproval_id = searchParams.get('labapproval_id');
+      const sample_collected_id = searchParams.get('sample_collected_id');
+      const billing_id = searchParams.get('billing_id');
+      
+      setPassedData({
+        patient_id: patient_id || undefined,
+        medical_num: medical_num || undefined,
+        investigation_id: investigation_id || undefined,
+        labapproval_id: labapproval_id || undefined,
+        sample_collected_id: sample_collected_id || undefined,
+        billing_id: billing_id || undefined,
+      });
+      
+      // Log the received data (for debugging)
+      console.log('Received 6 variables:', { 
+        patient_id, 
+        medical_num, 
+        investigation_id, 
+        labapproval_id, 
+        sample_collected_id, 
+        billing_id 
+      });
     };
     resolveParams();
-  }, [params]);
+  }, [params, searchParams]);
 
   // 2. Fetch patient data
   useEffect(() => {
@@ -160,8 +202,12 @@ export default function ReportUploadPage({ params }: ReportUploadPageProps) {
 
     try {
       const formData = new FormData();
-      formData.append('patient_id', resolvedParams?.patient_id || '');
-      formData.append('medical_num', resolvedParams?.medical_num || '');
+      formData.append('patient_id', passedData.patient_id || '');
+      formData.append('medical_num', passedData.medical_num || '');
+      formData.append('investigation_id', passedData.investigation_id || '');
+      formData.append('labapproval_id', passedData.labapproval_id || '');
+      formData.append('sample_collected_id', passedData.sample_collected_id || '');
+      formData.append('billing_id', passedData.billing_id || '');
       formData.append('notes', notes);
 
       uploadedFiles.forEach((uploadedFile, index) => {
@@ -180,7 +226,7 @@ export default function ReportUploadPage({ params }: ReportUploadPageProps) {
 
       // Success - redirect back
       setTimeout(() => {
-        router.push(`/lab/bill/${resolvedParams?.patient_id}/${resolvedParams?.medical_num}`);
+        router.push(`/lab/bill/${passedData.patient_id}/${passedData.medical_num}`);
       }, 1500);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Upload failed');
@@ -206,7 +252,7 @@ export default function ReportUploadPage({ params }: ReportUploadPageProps) {
         {/* Header */}
         <div className="mb-8">
           <Link
-            href={`/lab/bill/${resolvedParams?.patient_id}/${resolvedParams?.medical_num}`}
+            href={`/lab/bill/${passedData.patient_id}/${passedData.medical_num}`}
             className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 font-semibold mb-4 transition-colors"
           >
             <ArrowLeft size={20} />
@@ -217,6 +263,33 @@ export default function ReportUploadPage({ params }: ReportUploadPageProps) {
           </h1>
           <p className="text-gray-600 mt-2">Upload health reports and medical documents for this patient</p>
         </div>
+
+        {/* Display passed data (optional - for debugging/reference) */}
+        {Object.values(passedData).some(v => v) && (
+          <div className="bg-blue-50 border-l-4 border-blue-600 rounded-lg p-4 mb-6">
+            <h3 className="font-semibold text-blue-900 mb-3">Received IDs:</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+              {passedData.patient_id && (
+                <p><span className="font-medium text-blue-700">Patient ID:</span> <span className="text-gray-700">{passedData.patient_id}</span></p>
+              )}
+              {passedData.medical_num && (
+                <p><span className="font-medium text-blue-700">Medical Num:</span> <span className="text-gray-700">{passedData.medical_num}</span></p>
+              )}
+              {passedData.investigation_id && (
+                <p><span className="font-medium text-blue-700">Investigation ID:</span> <span className="text-gray-700">{passedData.investigation_id}</span></p>
+              )}
+              {passedData.labapproval_id && (
+                <p><span className="font-medium text-blue-700">Lab Approval ID:</span> <span className="text-gray-700">{passedData.labapproval_id}</span></p>
+              )}
+              {passedData.sample_collected_id && (
+                <p><span className="font-medium text-blue-700">Sample Collected ID:</span> <span className="text-gray-700">{passedData.sample_collected_id}</span></p>
+              )}
+              {passedData.billing_id && (
+                <p><span className="font-medium text-blue-700">Billing ID:</span> <span className="text-gray-700">{passedData.billing_id}</span></p>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Patient Info Card */}
         {patientInfo && (
@@ -261,31 +334,6 @@ export default function ReportUploadPage({ params }: ReportUploadPageProps) {
 
         {/* Main Upload Form */}
         <form onSubmit={handleUpload} className="space-y-6">
-          {/* Report Type Selection */}
-          <div className="bg-white rounded-xl shadow-lg p-8 border-t-4 border-blue-600">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">Select Report Type</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {REPORT_TYPES.map((reportType) => (
-                <button
-                  key={reportType.id}
-                  type="button"
-                  onClick={() => {
-                    setSelectedReportType(reportType.id);
-                    setError(null);
-                  }}
-                  className={`p-4 rounded-lg border-2 transition-all text-left ${
-                    selectedReportType === reportType.id
-                      ? 'border-blue-600 bg-blue-50 shadow-md'
-                      : 'border-gray-200 bg-white hover:border-blue-300'
-                  }`}
-                >
-                  <p className="font-semibold text-gray-900">{reportType.name}</p>
-                  <p className="text-sm text-gray-600 mt-1">{reportType.description}</p>
-                </button>
-              ))}
-            </div>
-          </div>
-
           {/* File Upload Area */}
           <div className="bg-white rounded-xl shadow-lg p-8 border-t-4 border-indigo-600">
             <h2 className="text-2xl font-bold text-gray-900 mb-6">Upload Documents</h2>
@@ -386,7 +434,7 @@ export default function ReportUploadPage({ params }: ReportUploadPageProps) {
           {/* Action Buttons */}
           <div className="flex gap-4 justify-end">
             <Link
-              href={`/lab/bill/${resolvedParams?.patient_id}/${resolvedParams?.medical_num}`}
+              href={`/lab/bill/${passedData.patient_id}/${passedData.medical_num}`}
               className="px-8 py-3 bg-gray-200 text-gray-900 font-bold rounded-lg hover:bg-gray-300 transition-colors"
             >
               Cancel
