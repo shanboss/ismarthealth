@@ -79,32 +79,81 @@ export async function GET(req: NextRequest) {
 
     // ── TESTS ────────────────────────────────────────────────────────────────
     const [tests]: any = await conn.query(
-      `
-      SELECT
-        itd.test_name,
-        DATE(rptd.sample_datetime) AS test_date,
-        TIME(rptd.sample_datetime) AS test_time,
-        sr.sample_value AS sample_result,
-        ltd.unit,
-        ltd.reference_range,
-        IF(rptd.approved_lab_doc_id > 0, 'Approved', 'Pending') AS review_approve,
-        CASE rptd.pat_status
-          WHEN 0 THEN 'NA'
-          WHEN 1 THEN 'In Progress'
-          WHEN 2 THEN 'Completed'
-          ELSE 'Unknown'
-        END AS report_status
-      FROM referral_patient_test_details rptd
-      JOIN investigation_test_details itd ON itd.parse_id = rptd.laboratory_tests
-      JOIN laboratory_test_details ltd ON ltd.laboratory_tests = rptd.laboratory_tests
-        AND ltd.laboratory_id = rptd.laboratory_id
-      LEFT JOIN sample_results sr ON sr.referral_test_ID = rptd.ID
-      WHERE rptd.medical_num = ?
-        AND rptd.laboratory_id = ?
-      ORDER BY rptd.ID
-      `,
-      [medical_num, header.laboratory_id]
-    );
+  `
+  (
+    SELECT DISTINCT
+      idet.investigation_name,
+      itd.test_name,
+      DATE(CONCAT(rptd.date, ' ', rptd.time)) AS test_date,
+      TIME(CONCAT(rptd.date, ' ', rptd.time)) AS test_time,
+      sr.sample_value AS sample_result,
+      ltd.unit,
+      ltd.reference_range,
+      rptd.sample_collected_id,
+      IF(rptd.labapproval_id > 0, 'Approved', 'Pending') AS review_approve,
+      CASE rptd.pat_status
+        WHEN 0 THEN 'NA'
+        WHEN 1 THEN 'In Progress'
+        WHEN 2 THEN 'Completed'
+        ELSE 'Unknown'
+      END AS report_status
+    FROM referral_patient_test_details rptd
+    INNER JOIN referral_patient_details rpd
+      ON rptd.main_patient_id = rpd.referral_patient_id
+    INNER JOIN investigation_test_details itd
+      ON itd.parse_id = rptd.laboratory_tests
+    LEFT JOIN investigation_details idet
+      ON itd.investigation_id = idet.investigation_id 
+    INNER JOIN laboratory_test_details ltd
+      ON ltd.laboratory_tests = rptd.laboratory_tests
+      AND ltd.laboratory_id = rptd.laboratory_id
+    LEFT JOIN sample_results sr
+      ON sr.referral_test_ID = rptd.ID
+    WHERE rptd.medical_num = ?
+      AND rptd.laboratory_id = ?
+    GROUP BY rptd.laboratory_tests
+  )
+
+  UNION
+
+  (
+    SELECT DISTINCT
+      idet.investigation_name,
+      itd.test_name,
+      DATE(CONCAT(rptd.date, ' ', rptd.time)) AS test_date,
+      TIME(CONCAT(rptd.date, ' ', rptd.time)) AS test_time,
+      sr.sample_value AS sample_result,
+      ltd.unit,
+      ltd.reference_range,
+      rptd.sample_collected_id,
+      IF(rptd.labapproval_id > 0, 'Approved', 'Pending') AS review_approve,
+      CASE rptd.pat_status
+        WHEN 0 THEN 'NA'
+        WHEN 1 THEN 'In Progress'
+        WHEN 2 THEN 'Completed'
+        ELSE 'Unknown'
+      END AS report_status
+    FROM referral_patient_test_details rptd
+    INNER JOIN patient_dep_details pdd
+      ON rptd.dependent_id = pdd.patient_dep_id
+    INNER JOIN investigation_test_details itd
+      ON itd.parse_id = rptd.laboratory_tests
+    LEFT JOIN investigation_details idet
+      ON itd.investigation_id = idet.investigation_id 
+    INNER JOIN laboratory_test_details ltd
+      ON ltd.laboratory_tests = rptd.laboratory_tests
+      AND ltd.laboratory_id = rptd.laboratory_id
+    LEFT JOIN sample_results sr
+      ON sr.referral_test_ID = rptd.ID
+    WHERE rptd.medical_num = ?
+      AND rptd.laboratory_id = ?
+    GROUP BY rptd.laboratory_tests
+  )
+  ORDER BY test_name
+  `,
+  [medical_num, header.laboratory_id, medical_num, header.laboratory_id]
+);
+
 
     return NextResponse.json({
       success: true,
@@ -123,6 +172,7 @@ export async function GET(req: NextRequest) {
         },
         tests: tests.map((t: any, i: number) => ({
           slNo: i + 1,
+          investigationName: t.investigation_name,
           testName: t.test_name,
           date: t.test_date,
           time: t.test_time,
@@ -131,6 +181,7 @@ export async function GET(req: NextRequest) {
           referenceRange: t.reference_range || "N/A",
           reviewApprove: t.review_approve,
           reportStatus: t.report_status,
+          sampleCollectedId: t.sample_collected_id,
         })),
       },
     });

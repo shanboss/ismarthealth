@@ -7,7 +7,8 @@ import {
   Phone, 
   Lock, 
   AlertCircle,
-  Loader2 
+  Loader2,
+  User
 } from "lucide-react";
 
 export default function LoginPage() {
@@ -22,14 +23,14 @@ export default function LoginPage() {
     setLoading(true);
 
     const formData = new FormData(e.currentTarget);
-    const phone_num = String(formData.get("phone_num") || "").trim();
+    const username = String(formData.get("username") || "").trim();
     const password = String(formData.get("password") || "").trim();
 
     try {
       const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone_num, password }),
+        body: JSON.stringify({ username, password }),
       });
 
       const data = await response.json();
@@ -99,20 +100,20 @@ export default function LoginPage() {
               {/* Phone Number */}
               <div>
                 <label 
-                  htmlFor="phone_num" 
+                  htmlFor="username" 
                   className="block text-sm font-medium text-gray-700 mb-1.5"
                 >
-                  Phone Number
+                  UserName
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-                    <Phone className="h-5 w-5 text-gray-400" />
+                    <User className="h-5 w-5 text-gray-400" />
                   </div>
                   <input
-                    id="phone_num"
-                    name="phone_num"
-                    type="tel"
-                    autoComplete="tel"
+                    id="username"
+                    name="username"
+                    type="text"
+                    autoComplete="username"
                     required
                     disabled={loading}
                     className="block w-full pl-11 pr-4 py-3 border border-gray-300 rounded-lg text-gray-900 

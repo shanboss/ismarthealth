@@ -6,7 +6,7 @@ import { RowDataPacket } from 'mysql2/promise';
 
 // Type for the login request body
 interface LoginRequest {
-  phone_num: string;
+  username: string;
   password: string;
 }
 
@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
     const body: LoginRequest = await request.json();
 
     // 1. Validate required fields
-    if (!body.phone_num || !body.password) {
+    if (!body.username || !body.password) {
       return NextResponse.json(
         { error: "Missing required fields: phone_num, password" },
         { status: 400 }
@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 2. Find user by phone number using raw SQL
-   const users = await query<UserRow>("SELECT * FROM login_details WHERE phone_num = ? LIMIT 1",[body.phone_num])
+   const users = await query<UserRow>("SELECT * FROM login_details WHERE username = ? LIMIT 1",[body.username])
 
    if (users.length > 0) {
     const user = users[0];
@@ -83,8 +83,8 @@ export async function POST(request: NextRequest) {
 
     // 5. Update last login time and count
     await query(
-      "UPDATE login_details SET last_login = NOW(), count = count + 1 WHERE phone_num = ?",
-      [body.phone_num]
+      "UPDATE login_details SET last_login = NOW(), count = count + 1 WHERE username = ?",
+      [body.username]
     );
 
     // 6. Get role name from the user/role table

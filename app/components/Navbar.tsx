@@ -61,7 +61,7 @@ export default function Navbar() {
           <div className="pl-2">
             <ThemeToggle />
           </div>
-                    {!loading && !user ? (
+            {!loading && !user ? (
             <div className="flex items-center gap-5 md:gap-6">
               <Link
                 href="/login"
@@ -98,6 +98,7 @@ export default function Navbar() {
                 <div className="absolute right-0 mt-2 w-64 origin-top-right rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-xl ring-1 ring-black/5 dark:ring-white/10 focus:outline-none overflow-hidden animate-in fade-in zoom-in-95 duration-150">
                   <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800">
                     <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">{user.firstname}</p>
+                    <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">{user.username}</p>
                     <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">{user.role_name}</p>
                   </div>
                   <div>

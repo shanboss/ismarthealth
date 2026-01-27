@@ -36,6 +36,7 @@ interface PatientDepDetailsData {
 }
 
 interface TestDetail {
+  testId: string;
   testName: string;
   date: string;
   time: string;
@@ -43,6 +44,8 @@ interface TestDetail {
   billingStatus: string;
   status: string;
   price: string;
+  sampleCollectedId?: number | null;
+  billingId: number | null;
 }
 
 interface BillingData {
@@ -62,6 +65,7 @@ export default function SampleDetailsPage({ params }: BillingPageProps) {
   } | null>(null);
   const [samplesCollected, setSamplesCollected] = useState<Set<number>>(new Set());
   const [samplesApproved, setSamplesApproved] = useState<Set<number>>(new Set());
+  const [isUpdating, setIsUpdating] = useState<number | null>(null);
   const billContentRef = useRef<HTMLDivElement>(null);
 
   // Resolve URL parameters
@@ -81,7 +85,7 @@ export default function SampleDetailsPage({ params }: BillingPageProps) {
       try {
         setLoading(true);
         const response = await fetch(
-          `/api/lab/billing?patient_id=${resolvedParams.patient_id}&medical_num=${resolvedParams.medical_num}`
+          `/api/lab/samples?patient_id=${resolvedParams.patient_id}&medical_num=${resolvedParams.medical_num}`
         );
 
         if (!response.ok) {
@@ -100,16 +104,63 @@ export default function SampleDetailsPage({ params }: BillingPageProps) {
     fetchBillingData();
   }, [resolvedParams]);
 
-  const handleSamplesCollected = (index: number) => {
-    setSamplesCollected(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(index)) {
-        newSet.delete(index);
-      } else {
-        newSet.add(index);
+  const handleSamplesCollected = async (index: number) => {
+    if (!patientData || !resolvedParams) return;
+
+    const test = patientData.patientTestDetails[index];
+
+    // If sample is already collected (sampleCollectedId == 2), do nothing
+    if (test.sampleCollectedId == 2) {
+      console.log("Sample already marked as collected");
+      return;
+    }
+
+    setIsUpdating(index);
+
+    try {
+      const response = await fetch("/api/lab/samples", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          patient_id: resolvedParams.patient_id,
+          medical_num: resolvedParams.medical_num,
+          testId: test.testId,
+          billingId: test.billingId,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "Failed to mark sample as collected");
       }
-      return newSet;
-    });
+
+      // Update local state to reflect the sample as collected
+      setSamplesCollected(prev => {
+        const newSet = new Set(prev);
+        newSet.add(index);
+        return newSet;
+      });
+
+      // Refresh the patient data to get the updated sampleCollectedId
+      const refreshResponse = await fetch(
+        `/api/lab/samples?patient_id=${resolvedParams.patient_id}&medical_num=${resolvedParams.medical_num}`
+      );
+
+      if (refreshResponse.ok) {
+        const refreshResult = await refreshResponse.json();
+        setPatientData(refreshResult.data);
+      }
+
+      console.log("Sample marked as collected successfully:", result);
+    } catch (err) {
+      console.error("Error marking sample as collected:", err);
+      alert(err instanceof Error ? err.message : "Failed to mark sample as collected");
+    } finally {
+      setIsUpdating(null);
+    }
   };
 
   const handleAddResults = (index: number) => {
@@ -181,53 +232,76 @@ export default function SampleDetailsPage({ params }: BillingPageProps) {
               margin: 10mm;
             }
             body {
-              background: white !important;
-              padding: 0 !important;
-              margin: 0 !important;
-              -webkit-print-color-adjust: exact;
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+              background-color: #fff;
+              color: #000;
+              margin: 0;
+              padding: 0;
             }
-            .flex { display: flex !important; }
-            .grid { display: grid !important; }
-            .flex-nowrap { flex-wrap: nowrap !important; }
-            .justify-between { justify-content: space-between !important; }
-            .print\\:hidden { display: none !important; }
+            .print\\:hidden {
+              display: none !important;
+            }
+            .print\\:border {
+              border: 1px solid #999;
+            }
+            .print\\:border-b {
+              border-bottom: 1px solid #999;
+            }
+            .print\\:border-t {
+              border-top: 1px solid #999;
+            }
+            .print\\:border-gray-400 {
+              border-color: #999;
+            }
+            .print\\:divide-y > * + * {
+              border-top: 1px solid #999;
+            }
+            .print\\:divide-gray-400 {
+              border-color: #999;
+            }
+            @media print {
+              body { margin: 0; padding: 0; }
+              .no-print { display: none; }
+            }
           </style>
         </head>
         <body>
-          <div class="min-h-screen bg-white">
-            ${content}
-          </div>
+          ${content}
         </body>
       </html>
     `);
-
     printWindow.document.close();
-
-    printWindow.onload = () => {
-      setTimeout(() => {
-        printWindow.focus();
-        printWindow.print();
-      }, 500);
-    };
+    setTimeout(() => {
+      printWindow.print();
+      printWindow.close();
+    }, 250);
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+      <div className="flex items-center justify-center min-h-screen bg-slate-50">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading sample details...</p>
+          <p className="text-slate-600 text-lg">Loading sample details...</p>
         </div>
       </div>
     );
   }
 
-  if (error || !patientData) {
+  if (error) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
-        <div className="bg-white rounded-lg shadow-lg p-8 max-w-md text-center">
-          <p className="text-red-600 font-bold text-xl mb-2">Error</p>
-          <p className="text-gray-700">{error || 'Patient data not found'}</p>
+      <div className="flex items-center justify-center min-h-screen bg-slate-50">
+        <div className="text-center">
+          <p className="text-red-600 text-lg">Error: {error}</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!patientData) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-slate-50">
+        <div className="text-center">
+          <p className="text-slate-600 text-lg">No data available</p>
         </div>
       </div>
     );
@@ -236,44 +310,35 @@ export default function SampleDetailsPage({ params }: BillingPageProps) {
   const { patientQueue, patientDepDetails, patientTestDetails, labInfo } = patientData;
 
   return (
-    <div className="min-h-screen bg-white p-6">
-      <div className="max-w-6xl mx-auto space-y-6">
-
-        {/* Action buttons – visible only on screen */}
-        <div className="flex justify-end gap-4 print:hidden">
+    <div className="min-h-screen bg-slate-50 py-4 print:bg-white">
+      <div className="max-w-6xl mx-auto print:max-w-full">
+        {/* Action Buttons */}
+        <div className="mb-4 px-4 flex gap-2 print:hidden">
           <button
-            onClick={(e) => {
-              e.preventDefault();
-              handleDownloadPDF();
-            }}
-            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-5 rounded-lg shadow-sm transition-all text-sm"
+            onClick={handleDownloadPDF}
+            className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded transition-all"
+            title="Download as PDF"
           >
-            <Download size={16} />
+            <Download size={18} />
             Download PDF
           </button>
           <button
-            onClick={(e) => {
-              e.preventDefault();
-              handlePrint();
-            }}
-            className="flex items-center gap-2 bg-slate-700 hover:bg-slate-800 text-white font-medium py-2 px-5 rounded-lg shadow-sm transition-all text-sm"
+            onClick={handlePrint}
+            className="inline-flex items-center gap-2 bg-slate-600 hover:bg-slate-700 text-white font-bold py-2 px-4 rounded transition-all"
+            title="Print report"
           >
-            <Printer size={16} />
+            <Printer size={18} />
             Print
           </button>
         </div>
 
-        {/* ─────────────────────────────────────────────────────────────────────── */}
-        {/* Everything below is included in PDF and Print     */}
-        {/* ─────────────────────────────────────────────────────────────────────── */}
-
-        <div ref={billContentRef} className="bg-white print:bg-white">
-
-          {/* Lab Information Header */}
-          <div className="p-6 bg-white border-b-2 border-slate-300 print:border-b print:border-gray-400">
-            <div className="flex justify-between items-start">
+        {/* Main Content */}
+        <div ref={billContentRef} className="bg-white shadow-lg print:shadow-none">
+          {/* Header */}
+          <div className="px-6 py-6 border-b-2 border-slate-300 print:border-b print:border-gray-400">
+            <div className="flex flex-nowrap items-start justify-between gap-4">
               <div>
-                <h1 className="text-2xl font-black text-slate-800 uppercase tracking-tight">
+                <h1 className="text-3xl font-bold tracking-tight text-slate-700">
                   {labInfo.laboratory_name}
                 </h1>
                 <p className="text-gray-600 mt-1">
@@ -406,16 +471,23 @@ export default function SampleDetailsPage({ params }: BillingPageProps) {
                         <td className="p-3 text-center print:hidden space-y-2">
                           <button
                             onClick={() => handleSamplesCollected(index)}
+                            disabled={isUpdating === index || test.sampleCollectedId == 2}
                             className={`w-full inline-flex items-center justify-center gap-1 font-bold py-1.5 px-2.5 rounded text-[10px] transition-all ${
-                              samplesCollected.has(index)
-                                ? 'bg-red-700 hover:bg-red-800 text-white'
+                              test.sampleCollectedId == 2
+                                ? 'bg-green-700 text-white cursor-not-allowed opacity-75'
+                                : isUpdating === index
+                                ? 'bg-gray-500 text-white cursor-wait'
                                 : 'bg-red-600 hover:bg-red-700 text-white'
                             }`}
-                            title="Mark sample as collected"
+                            title={test.sampleCollectedId == 2 ? "Sample already approved" : "Mark sample as collected"}
                           >
-                            {samplesCollected.has(index) ? "Sample Approved" : "Approve Sample"}
+                            {isUpdating === index
+                              ? "Updating..."
+                              : test.sampleCollectedId == 2
+                              ? "Sample Approved"
+                              : "Approve Sample"}
                           </button>
-                          {samplesCollected.has(index) && (
+                          {samplesCollected.has(index) && test.sampleCollectedId == 2 && (
                             <Link
                               href={`/lab/AddReport/${resolvedParams?.medical_num}/${resolvedParams?.patient_id}`}
                               className="w-full inline-flex items-center justify-center gap-1 bg-green-600 hover:bg-green-700 text-white font-bold py-1.5 px-2.5 rounded text-[10px] transition-all"
