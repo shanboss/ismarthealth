@@ -1,25 +1,46 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { AddPatientForm } from "../../../config/lab/ReferSuperSpecialty/AddPatient";
+import type { PatientQueueResult } from "../../../config/lab/ReferSuperSpecialty/SearchPatient";
 
 export default function AddPatient({
   onPrev,
   onNext,
   initial,
+  selectedPatient,
 }: {
   onPrev: () => void;
   onNext: (data: AddPatientForm) => void;
-  initial?: Partial<AddPatientForm>;
+  initial?: Partial<AddPatientForm> & {
+    firstname?: string;
+    phonenum?: string;
+    mailid?: string;
+    patient_unique_id?: string;
+  };
+  selectedPatient?: PatientQueueResult | null;
 }) {
   const [form, setForm] = useState<AddPatientForm>({
-    firstName: "",
-    lastName: "",
-    gender: "male",
-    email: "",
-    phone: initial?.phone ?? "",
-    age: "",
+    firstName: initial?.firstName ?? initial?.firstname ?? "",
+    lastName: initial?.lastName ?? "",
+    gender: (initial?.gender as AddPatientForm["gender"]) ?? "male",
+    email: initial?.email ?? initial?.mailid ?? "",
+    phone: initial?.phone ?? initial?.phonenum ?? "",
+    age: initial?.age ?? "",
+    patient_unique_id: initial?.patient_unique_id ?? selectedPatient?.patient_unique_id,
   });
+
+  useEffect(() => {
+    if (selectedPatient) {
+      setForm((f) => ({
+        ...f,
+        firstName: f.firstName || selectedPatient.firstname,
+        phone: f.phone || selectedPatient.phonenum,
+        email: f.email || selectedPatient.mailid || "",
+        patient_unique_id: selectedPatient.patient_unique_id,
+      }));
+    }
+  }, [selectedPatient]);
 
   function update<K extends keyof AddPatientForm>(key: K, val: AddPatientForm[K]) {
     setForm((f) => ({ ...f, [key]: val }));
@@ -100,7 +121,13 @@ export default function AddPatient({
         </button>
         <button
           type="button"
-          onClick={() => onNext(form)}
+          onClick={() =>
+            onNext({
+              ...form,
+              patient_unique_id:
+                form.patient_unique_id ?? selectedPatient?.patient_unique_id,
+            })
+          }
           className="rounded-md bg-red-500 px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90 active:scale-95"
         >
           Next
