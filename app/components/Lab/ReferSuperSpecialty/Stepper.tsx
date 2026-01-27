@@ -2,7 +2,7 @@
 
 import React from "react";
 
-export type StepId = "search" | "add" | "super";
+export type StepId = "search" | "add" | "super" | "confirm";
 
 export type Step = {
   id: StepId;
@@ -13,31 +13,42 @@ const STEPS: Step[] = [
   { id: "search", label: "Search Patient" },
   { id: "add", label: "Add Patient" },
   { id: "super", label: "Super Speciality" },
+  { id: "confirm", label: "Confirm" },
 ];
 
 export function Stepper({
   activeStep,
   completed,
   onSelect,
+  selectableSteps,
 }: {
   activeStep: StepId;
   completed: StepId[];
   onSelect?: (s: StepId) => void;
+  selectableSteps?: StepId[];
 }) {
+  const canSelect = selectableSteps
+    ? (id: StepId) => selectableSteps.includes(id)
+    : () => true;
+
   return (
     <div className="w-full overflow-x-auto">
       <div className="flex w-full items-center justify-between gap-2 rounded-md border border-foreground/10 bg-foreground/5 p-2">
         {STEPS.map((s) => {
           const isActive = s.id === activeStep;
           const isDone = completed.includes(s.id);
+          const isSelectable = canSelect(s.id);
           return (
             <button
               key={s.id}
               type="button"
-              onClick={() => onSelect?.(s.id)}
+              disabled={!isSelectable}
+              onClick={() => isSelectable && onSelect?.(s.id)}
               className={
                 "min-w-40 rounded-md px-3 py-2 text-sm font-medium transition " +
-                (isActive
+                (!isSelectable
+                  ? "cursor-not-allowed bg-transparent text-foreground/40"
+                  : isActive
                   ? "bg-red-500 text-white shadow"
                   : isDone
                   ? "bg-foreground/10 text-foreground"

@@ -5,4 +5,5 @@ export type AddPatientForm = {
   email?: string;
   phone: string;
   age?: string;
+  patient_unique_id?: string;
 };

@@ -5,10 +5,10 @@ import { SPECIALISTS, SPECIALTIES, Specialist } from "../../../config/lab/ReferS
 
 export default function SuperSpeciality({
   onPrev,
-  onFinish,
+  onNext,
 }: {
   onPrev: () => void;
-  onFinish: (payload: { specialist?: Specialist }) => void;
+  onNext: (payload: { specialist?: Specialist }) => void;
 }) {
   const [selectedSpecialty, setSelectedSpecialty] = useState<string>(
     SPECIALTIES[0] ?? ""
@@ -87,14 +87,15 @@ export default function SuperSpeciality({
         <button
           type="button"
           onClick={() =>
-            onFinish({
+            onNext({
               specialist:
                 selectedIndex !== undefined ? filtered[selectedIndex] : undefined,
             })
           }
-          className="rounded-md bg-red-500 px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90 active:scale-95"
+          disabled={selectedIndex === undefined}
+          className="rounded-md bg-red-500 px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          Finish
+          Next
         </button>
       </div>
     </div>
