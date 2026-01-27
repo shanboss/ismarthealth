@@ -193,7 +193,7 @@ export default function SearchPatient({
 
         {/* Info message when no search has been performed yet */}
         {!hasSearched && !loading && (
-          <div className="rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800 dark:border-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
+          <div className="rounded-md border-2 border-blue-500 bg-blue-100 px-4 py-3 text-sm font-medium text-blue-900 dark:border-blue-400 dark:bg-blue-950/80 dark:text-blue-100">
             Enter a phone number and click Search to find existing patients
           </div>
         )}

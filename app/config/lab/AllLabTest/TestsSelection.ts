@@ -29,6 +29,7 @@ export type LaboratoryTest = {
   interpretation: string | null;
   sort_order: number;
   title_required: number;
+  test_name?: string | null; // Test name from investigation_test_details
 };
 
 export type SelectedTest = {

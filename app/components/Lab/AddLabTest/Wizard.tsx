@@ -29,6 +29,20 @@ export default function AddLabTestWizard() {
     return done;
   }, [data]);
 
+  const stepOrder: StepId[] = useMemo(
+    () => ["search", "add", "doctor", "tests", "confirm"],
+    []
+  );
+  const selectableSteps: StepId[] = useMemo(() => {
+    const i = stepOrder.indexOf(active);
+    if (i < 0) return stepOrder;
+    const currentAndPrevious = stepOrder.slice(0, i + 1);
+    const canGoForward = completed.includes(active);
+    return canGoForward && i + 1 < stepOrder.length
+      ? [...currentAndPrevious, stepOrder[i + 1]]
+      : currentAndPrevious;
+  }, [active, stepOrder, completed]);
+
   function next(step: StepId) {
     setActive(step);
   }
@@ -43,6 +57,7 @@ export default function AddLabTestWizard() {
         activeStep={active}
         completed={completed}
         onSelect={(s) => setActive(s)}
+        selectableSteps={selectableSteps}
       />
 
       {active === "search" ? (
@@ -58,8 +73,9 @@ export default function AddLabTestWizard() {
                 patient: {
                   firstName: patient.firstname,
                   phone: patient.phonenum,
-                  email: patient.mailid,
-                  // Include other relevant patient data
+                  email: patient.mailid || "",
+                  patient_unique_id: patient.patient_unique_id, // Pass existing patient_unique_id
+                  // Note: The API will use this to find the existing patient
                 },
               }));
               next("doctor");
@@ -102,12 +118,14 @@ export default function AddLabTestWizard() {
       ) : (
         <Confirm
           summary={{
-            ...data,
-            tests: data.tests?.map((test) => test.name),
+            phone: data.phone,
+            patient: data.patient,
+            doctor: data.doctor,
+            tests: data.tests,
           }}
           onPrev={() => next("tests")}
           onFinish={() => {
-            // For now, just reset the wizard
+            // Reset the wizard after successful submission
             setActive("search");
             setData({});
           }}

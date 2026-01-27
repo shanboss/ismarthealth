@@ -71,9 +71,10 @@ export default function TestsSelection({
     Object.entries(groupedTests).forEach(([dept, tests]) => {
       const matchingTests = tests.filter(
         (test) =>
+          (test.test_name && test.test_name.toLowerCase().includes(q)) ||
           test.laboratory_tests.toLowerCase().includes(q) ||
-          test.custom_test_name.toLowerCase().includes(q) ||
-          test.code.toLowerCase().includes(q) ||
+          (test.custom_test_name && test.custom_test_name.toLowerCase().includes(q)) ||
+          (test.code && test.code.toLowerCase().includes(q)) ||
           (test.test_type && test.test_type.toLowerCase().includes(q))
       );
       if (matchingTests.length > 0) {
@@ -108,10 +109,10 @@ export default function TestsSelection({
         if (!test) return null;
         return {
           id: test.laboratory_testid,
-          name: test.laboratory_tests,
+          name: test.test_name || test.custom_test_name || test.laboratory_tests,
           department: test.sub_department || "Other",
           price: test.test_price,
-          code: test.code,
+          code: test.code || "",
         };
       })
       .filter((t): t is SelectedTest => t !== null);
@@ -209,11 +210,11 @@ export default function TestsSelection({
                                 />
                                 <div className="min-w-0 flex-1">
                                   <div className="truncate text-sm text-foreground">
-                                    {test.laboratory_tests}
+                                    {test.test_name || test.custom_test_name || test.laboratory_tests}
                                   </div>
                                   <div className="flex gap-2 text-xs text-foreground/60">
-                                    <span>{test.code}</span>
-                                    <span>•</span>
+                                    {test.code && <span>{test.code}</span>}
+                                    {test.code && <span>•</span>}
                                     <span>₹{test.test_price}</span>
                                   </div>
                                 </div>
@@ -227,7 +228,7 @@ export default function TestsSelection({
                                 }
                                 className="m-2 inline-flex items-center justify-center rounded-md border border-foreground/20 bg-background p-1 text-foreground transition hover:opacity-80 disabled:opacity-40"
                                 disabled={isSelected}
-                                aria-label={`Add ${test.laboratory_tests}`}
+                                aria-label={`Add ${test.test_name || test.custom_test_name || test.laboratory_tests}`}
                                 title={
                                   isSelected
                                     ? "Already selected"
@@ -286,6 +287,18 @@ export default function TestsSelection({
               No tests selected.
             </p>
           )}
+
+          {/* Next button below selected tests */}
+          <div className="mt-4 pt-4 border-t border-foreground/10">
+            <button
+              type="button"
+              onClick={() => onNext(selectedTests)}
+              disabled={selectedTests.length === 0}
+              className="w-full rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Next
+            </button>
+          </div>
         </aside>
       </div>
 
@@ -308,14 +321,6 @@ export default function TestsSelection({
             <span>No tests selected</span>
           )}
         </div>
-        <button
-          type="button"
-          onClick={() => onNext(selectedTests)}
-          disabled={selectedTests.length === 0}
-          className="rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          Next
-        </button>
       </div>
     </div>
   );
