@@ -476,7 +476,7 @@ export default function SampleDetailsPage({ params }: BillingPageProps) {
                             disabled={isUpdating === index || test.sampleCollectedId == 2}
                             className={`w-full inline-flex items-center justify-center gap-1 font-bold py-1.5 px-2.5 rounded text-[10px] transition-all ${
                               test.sampleCollectedId ?? 0 >= 1
-                                ? 'bg-green-700 text-white cursor-not-allowed opacity-75'
+                                ? (test.sampleCollectedId == 1 ? 'bg-gray-900 text-white cursor-not-allowed opacity-75': 'bg-green-700 text-white cursor-not-allowed opacity-75')
                                 : isUpdating === index
                                 ? 'bg-gray-500 text-white cursor-wait'
                                 : 'bg-red-600 hover:bg-red-700 text-white'
@@ -486,10 +486,10 @@ export default function SampleDetailsPage({ params }: BillingPageProps) {
                             {isUpdating === index
                               ? "Updating..."
                               : test.sampleCollectedId ?? 0 >= 1
-                              ? "Sample Approved"
+                              ? (test.sampleCollectedId == 1 ? "Sample Approved": "Sample Collected")
                               : "Approve Sample"}
                           </button>
-                          {(test.sampleCollectedId ?? 0 >= 1) && (
+                          {(test.sampleCollectedId == 1) && (
                             
                             <Link
                               href={`/lab/AddReport/${resolvedParams?.medical_num}/${resolvedParams?.patient_id}/${test.investigationId}/${test.labapprovalId}/${test.billingId}/${test.sampleCollectedId}`}

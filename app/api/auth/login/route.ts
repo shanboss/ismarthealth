@@ -41,6 +41,8 @@ export async function POST(request: NextRequest) {
   try {
     const body: LoginRequest = await request.json();
 
+    console.log("Login attempt for username:", body.username);
+
     // 1. Validate required fields
     if (!body.username || !body.password) {
       return NextResponse.json(
@@ -51,6 +53,7 @@ export async function POST(request: NextRequest) {
 
     // 2. Find user by phone number using raw SQL
    const users = await query<UserRow>("SELECT * FROM login_details WHERE username = ? LIMIT 1",[body.username])
+   console.log("users=", users);
 
    if (users.length > 0) {
     const user = users[0];
@@ -143,7 +146,7 @@ export async function POST(request: NextRequest) {
     return response;
 
   } else {
-    console.log("No user found with that phone number.");
+    console.log("No user found.");
   }
 
     

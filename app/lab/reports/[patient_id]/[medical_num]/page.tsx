@@ -246,7 +246,7 @@ export default function ReportsPage({ params }: ReportsPageProps) {
                   {(() => {
                     // Group tests by investigationName
                     const grouped = tests.reduce((acc, test) => {
-                      const key = test.investigationName.trim();
+                      const key = (test.investigationName)?test.investigationName.trim():'NA';
                       if (!acc[key]) acc[key] = [];
                       acc[key].push(test);
                       return acc;

@@ -4,7 +4,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { ArrowLeft, Upload, FileCheck, AlertCircle, X } from 'lucide-react';
 import Link from 'next/link';
-import AddReportOptions  from '../../../../../../../../components/Lab/AddReportOptions'; // Adjusted the relative path to the correct location
 import { useRouter, useSearchParams } from 'next/navigation';
 
 interface ReportUploadPageProps {
@@ -299,17 +298,6 @@ export default function ReportUploadPage({ params }: ReportUploadPageProps) {
             </div>
           </div>
         )}
-
-        <div className="bg-white rounded-xl shadow-lg p-6 mb-8 border-l-4 border-gray-400">
-          <AddReportOptions
-            billing_id={passedData.billing_id}
-            sample_collected_id={passedData.sample_collected_id}
-            investigation_id={passedData.investigation_id}
-            labapproval_id={passedData.labapproval_id}
-            medical_num={passedData.medical_num}
-            patient_id={passedData.patient_id}
-          />
-        </div>
 
         {/* Patient Info Card */}
         {patientInfo && (

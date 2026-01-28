@@ -82,7 +82,7 @@ export async function GET(req: NextRequest) {
   `
   (
     SELECT DISTINCT
-      idet.investigation_name,
+      idet.test_name as parent_test_name,
       itd.test_name,
       DATE(CONCAT(rptd.date, ' ', rptd.time)) AS test_date,
       TIME(CONCAT(rptd.date, ' ', rptd.time)) AS test_time,
@@ -102,8 +102,8 @@ export async function GET(req: NextRequest) {
       ON rptd.main_patient_id = rpd.referral_patient_id
     INNER JOIN investigation_test_details itd
       ON itd.parse_id = rptd.laboratory_tests
-    LEFT JOIN investigation_details idet
-      ON itd.investigation_id = idet.investigation_id 
+    INNER JOIN investigation_test_details idet
+      ON itd.parent_parse_id = idet.parse_id 
     INNER JOIN laboratory_test_details ltd
       ON ltd.laboratory_tests = rptd.laboratory_tests
       AND ltd.laboratory_id = rptd.laboratory_id
@@ -118,7 +118,7 @@ export async function GET(req: NextRequest) {
 
   (
     SELECT DISTINCT
-      idet.investigation_name,
+      idet.test_name as parent_test_name,
       itd.test_name,
       DATE(CONCAT(rptd.date, ' ', rptd.time)) AS test_date,
       TIME(CONCAT(rptd.date, ' ', rptd.time)) AS test_time,
@@ -138,8 +138,8 @@ export async function GET(req: NextRequest) {
       ON rptd.dependent_id = pdd.patient_dep_id
     INNER JOIN investigation_test_details itd
       ON itd.parse_id = rptd.laboratory_tests
-    LEFT JOIN investigation_details idet
-      ON itd.investigation_id = idet.investigation_id 
+    INNER JOIN investigation_test_details idet
+      ON itd.parent_parse_id = idet.parse_id 
     INNER JOIN laboratory_test_details ltd
       ON ltd.laboratory_tests = rptd.laboratory_tests
       AND ltd.laboratory_id = rptd.laboratory_id
@@ -172,7 +172,7 @@ export async function GET(req: NextRequest) {
         },
         tests: tests.map((t: any, i: number) => ({
           slNo: i + 1,
-          investigationName: t.investigation_name,
+          investigationName: t.parent_test_name,
           testName: t.test_name,
           date: t.test_date,
           time: t.test_time,
