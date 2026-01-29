@@ -14,7 +14,6 @@ interface PatientQueueRow extends RowDataPacket {
 }
 
 interface TestRecordRow extends RowDataPacket {
-  id: number | bigint;
   parse_parent_id: number;
   laboratory_id: number;
   laboratory_tests: string;
@@ -28,34 +27,6 @@ interface TestRecordRow extends RowDataPacket {
 }
 
 
-// GET handler for fetchApprovedSamples endpoint
-// export async function GET(request: NextRequest) {
-//   try {
-//     // Extract query parameters
-//     const searchParams = request.nextUrl.searchParams;
-//     const medicalNum = searchParams.get('medicalNum');
-//     const patientId = searchParams.get('patientId');
-
-//     if (!medicalNum || !patientId) {
-//       return NextResponse.json(
-//         { error: "Missing required parameters: medicalNum and patientId" },
-//         { status: 400 }
-//       );
-//     }
-
-//     // Call the fetchApprovedSamples function
-//     const result = await fetchApprovedSamples(medicalNum, patientId);
-    
-//     return NextResponse.json(result, { status: 200 });
-//   } catch (error) {
-//     console.error("GET /api/lab/samples Error:", error);
-//     return NextResponse.json(
-//       { error: "Internal Server Error" },
-//       { status: 500 }
-//     );
-//   }
-// }
-
 export async function POST(request: NextRequest) {
   const connection = await pool.getConnection();
 
@@ -68,11 +39,11 @@ export async function POST(request: NextRequest) {
 
     // 2. Parse request body
     const body = await request.json();
-    const { patient_unique_id, medical_num, lab_testname, sample_collected_status } = body;
+    const { patient_id, medical_num, testId, billingId } = body;
 
-    if (!patient_unique_id || !medical_num || !lab_testname || sample_collected_status === undefined) {
+    if (!patient_id || !medical_num || !testId) {
       return NextResponse.json(
-        { error: "Missing required fields: patient_unique_id, medical_num, lab_testname, and sample_collected_status" },
+        { error: "Missing required fields: patient_id, medical_num, and testId" },
         { status: 400 }
       );
     }
@@ -81,144 +52,64 @@ export async function POST(request: NextRequest) {
     const medicalNumClean = medical_num.trim();
     const medicalNumSpecial = medicalNumClean.replace(/ /g, "%20");
 
-    console.log("Update sample collected status:", {
-      patient_unique_id,
+    console.log("Marking sample collected:", {
+      patient_id,
       medical_num: medicalNumClean,
       medical_num_special: medicalNumSpecial,
-      lab_testname,
-      sample_collected_status,
+      testId,
+      billingId,
     });
 
     // 3. Start transaction
     await connection.beginTransaction();
 
+    const now = new Date()
+      .toISOString()
+      .replace("T", " ")
+      .slice(0, 19); // MySQL-friendly datetime
+
     try {
-      // 4. Step 1: Get laboratory_tests value where has_child = 1
-      // This mirrors the PHP CodeIgniter query:
-      // $this->db->where('has_child', 1);
-      const [checkRows] = await connection.execute(
-        `SELECT laboratory_tests FROM referral_patient_test_details 
-         WHERE patient_unique_id = ? 
-         AND (medical_num = ? OR medical_num = ?)
-         AND ID = ? 
-         AND has_child = 1 
-         LIMIT 1`,
-        [patient_unique_id, medicalNumClean, medicalNumSpecial, lab_testname]
-      );
-
-      const checkResult = checkRows as RowDataPacket[];
-      let laboratoryTests: string | null = null;
-      const hasChild = checkResult.length > 0;
-
-      if (hasChild) {
-        laboratoryTests = checkResult[0].laboratory_tests;
-        console.log(`Found parent test with has_child = 1: laboratory_tests = ${laboratoryTests}`);
-      }
-
-      // 5. Step 2a: Update the main record (always executed)
-      // This always runs regardless of has_child value
-      const [mainUpdate] = await connection.execute(
+      // 4. Update referral_patient_test_details
+      // We update the specific test record that matches patient_unique_id, medical_num, and laboratory_tests (testId)
+      const [result] = await connection.execute(
         `UPDATE referral_patient_test_details 
-         SET sample_collected_id = ?
-         WHERE medical_num = ? 
-         AND ID = ? 
-         AND patient_unique_id = ?`,
-        [sample_collected_status, medicalNumClean, lab_testname, patient_unique_id]
+         SET 
+           sample_collected_id = 1,
+           sample_datetime = ?
+         WHERE 
+           patient_unique_id = ? 
+           AND (medical_num = ? OR medical_num = ?)
+           AND laboratory_tests = ?
+           AND (sample_collected_id IS NULL OR sample_collected_id != 1)`,
+        [now, patient_id, medicalNumClean, medicalNumSpecial, testId]
       );
 
-      const mainUpdateResult = mainUpdate as import("mysql2").OkPacket;
-      const mainAffectedRows = mainUpdateResult.affectedRows || 0;
-      console.log(`Updated main record: ${mainAffectedRows} rows affected`);
+      const updateResult = result as import("mysql2").OkPacket; // mysql2 types
+      const affectedRows = updateResult.affectedRows || 0;
 
-      // 5. Step 2b: If has_child = 1, also update child records
-      // This mirrors the PHP CodeIgniter conditional update for child records:
-      // $this->db->where('parse_parent_id', $laboratory_tests);
-      let childAffectedRows = 0;
-      if (hasChild && laboratoryTests) {
-        const [childUpdate] = await connection.execute(
-          `UPDATE referral_patient_test_details 
-           SET sample_collected_id = ?
-           WHERE medical_num = ? 
-           AND parse_parent_id = ? 
-           AND patient_unique_id = ?`,
-          [sample_collected_status, medicalNumClean, laboratoryTests, patient_unique_id]
-        );
+      console.log(`Updated ${affectedRows} test record to sample collected`);
 
-        const childUpdateResult = childUpdate as import("mysql2").OkPacket;
-        childAffectedRows = childUpdateResult.affectedRows || 0;
-        console.log(`Updated child records: ${childAffectedRows} rows affected`);
-      }
-
-      const totalAffectedRows = mainAffectedRows + childAffectedRows;
-
-      if (totalAffectedRows === 0) {
+      if (affectedRows === 0) {
+        // No rows were updated → either not found or already collected
         await connection.rollback();
         return NextResponse.json(
           {
             success: false,
-            message: "No matching records found to update",
+            message: "No matching records found or sample already marked as collected",
           },
           { status: 200 }
         );
       }
 
-      // 6. Step 3: Check if all tests for this patient/medical_num have sample_collected_id = 0
-      // This mirrors the PHP CodeIgniter check:
-      // if($query->num_rows()<=0) { update lab_test_status to 3 }
-      const [pendingTests] = await connection.execute(
-        `SELECT * FROM referral_patient_test_details 
-         WHERE patient_unique_id = ? 
-         AND (medical_num = ? OR medical_num = ?)
-         AND sample_collected_id = 0`,
-        [patient_unique_id, medicalNumClean, medicalNumSpecial]
-      );
-
-      const pendingTestsResult = pendingTests as RowDataPacket[];
-      const hasPendingTests = pendingTestsResult.length > 0;
-
-      console.log(`Pending tests remaining: ${pendingTestsResult.length}`);
-
-      // If no pending tests (all collected), update lab_test_status to 3
-      if (!hasPendingTests) {
-        // Update referral_confirmation_details
-        // PHP CodeIgniter: $this->db->update('referral_confirmation_details');
-        const [confirmUpdate] = await connection.execute(
-          `UPDATE referral_confirmation_details 
-           SET lab_test_status = 3
-           WHERE medical_num = ? 
-           AND patient_unique_id = ?`,
-          [medicalNumClean, patient_unique_id]
-        );
-
-        const confirmUpdateResult = confirmUpdate as import("mysql2").OkPacket;
-        console.log(`Updated referral_confirmation_details: ${confirmUpdateResult.affectedRows} rows affected`);
-
-        // Update patientqueue
-        // PHP CodeIgniter: $this->db->update('patientqueue');
-        const [queueUpdate] = await connection.execute(
-          `UPDATE patientqueue 
-           SET lab_test_status = 3
-           WHERE medical_num = ? 
-           AND patient_unique_id = ?`,
-          [medicalNumClean, patient_unique_id]
-        );
-
-        const queueUpdateResult = queueUpdate as import("mysql2").OkPacket;
-        console.log(`Updated patientqueue: ${queueUpdateResult.affectedRows} rows affected`);
-      }
-
-      // 7. Commit transaction
+      // 5. Commit transaction
       await connection.commit();
 
       return NextResponse.json(
         {
           success: true,
-          message: "Sample collection status updated successfully",
-          mainRecordsUpdated: mainAffectedRows,
-          childRecordsUpdated: childAffectedRows,
-          totalRecordsUpdated: totalAffectedRows,
-          allTestsCollected: !hasPendingTests,
-          labTestStatusUpdated: !hasPendingTests,
+          message: `Sample collection marked successfully`,
+          affectedRows,
+          collected_at: now,
         },
         { status: 200 }
       );
@@ -284,7 +175,6 @@ export async function GET(request: NextRequest) {
     // 3. Fetch test records using the new UNION query
     const testRecords = await query<TestRecordRow[]>(
       `(SELECT DISTINCT 
-          rptd.ID as id,
           rptd.instruction,
           ltd.instruction as test_instruction,
           ltd.methodology,
@@ -319,6 +209,7 @@ export async function GET(request: NextRequest) {
           rptd.parse_parent_id,
           rptd.patient_unique_id
         FROM referral_patient_test_details rptd
+        INNER JOIN referral_patient_details rpd ON rptd.main_patient_id = rpd.referral_patient_id
         INNER JOIN investigation_test_details itd ON itd.parse_id = rptd.laboratory_tests
         INNER JOIN laboratory_details ld ON ld.laboratory_id = rptd.laboratory_id
         LEFT JOIN physician_appointment pa ON pa.physician_id = rptd.physician_id
@@ -333,7 +224,6 @@ export async function GET(request: NextRequest) {
         GROUP BY rptd.laboratory_tests)
       UNION
       (SELECT DISTINCT 
-          rptd.ID as id,
           rptd.instruction,
           ltd.instruction as test_instruction,
           ltd.methodology,
@@ -386,7 +276,6 @@ export async function GET(request: NextRequest) {
     console.log("Test Records:", testRecords);
     // 4. Map test records to frontend-friendly structure
     const patientTestDetails = testRecords.map((record) => ({
-      id: record.id.toString(),
       testName: record.test_name || "Unknown Test",
       testId: record.laboratory_tests,
       date: record.date ? new Date(record.date).toISOString().split('T')[0] : "N/A",
@@ -469,90 +358,3 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
-// export async function fetchApprovedSamples(
-//   medicalNum: string,
-//   patientId: string
-// ) {
-//   try {
-//     // Normalize medical_num (in case it contains spaces or was URL-encoded)
-//     const medicalNumClean = medicalNum.trim();
-//     const medicalNumSpecial = medicalNumClean.replace(/ /g, "%20");
-
-//     console.log("Fetching approved samples:", {
-//       medical_num: medicalNumClean,
-//       medical_num_special: medicalNumSpecial,
-//       patient_id: patientId,
-//     });
-
-//     const approvedSamples = await query<RowDataPacket[]>(
-//       `SELECT DISTINCT 
-//         itd.investigation_id, 
-//         itd.test_name as parent_test_name, 
-//         itd2.test_name as child_test_name, 
-//         ltd.unit, 
-//         ltd.reference_range, 
-//         rptd.* 
-//       FROM referral_patient_test_details as rptd 
-//       INNER JOIN investigation_test_details as itd ON itd.parse_id = rptd.laboratory_tests
-//       INNER JOIN laboratory_test_details as ltd ON ltd.laboratory_tests = rptd.laboratory_tests AND ltd.laboratory_id = rptd.laboratory_id
-//       LEFT JOIN investigation_test_details as itd2 on itd.parse_id = itd2.parent_parse_id
-//       WHERE (rptd.medical_num = ? OR rptd.medical_num = ?) 
-//         AND rptd.patient_unique_id = ? 
-//         AND rptd.sample_collected_id = 1`,
-//       [medicalNumClean, medicalNumSpecial, patientId]
-//     );
-
-//     console.log("Approved Samples Result:", approvedSamples);
-
-//     if (!approvedSamples || approvedSamples.length === 0) {
-//       return {
-//         success: false,
-//         message: "No approved samples found",
-//         data: [],
-//       };
-//     }
-
-//     // Map the results to a frontend-friendly structure
-//     const mappedSamples = approvedSamples.map((sample) => ({
-//       investigationId: sample.investigation_id,
-//       parentTestName: sample.parent_test_name,
-//       childTestName: sample.child_test_name || null,
-//       unit: sample.unit || null,
-//       referenceRange: sample.reference_range || null,
-//       testId: sample.laboratory_tests,
-//       testDetails: {
-//         id: sample.ID,
-//         medicalNum: sample.medical_num,
-//         patientUniqueId: sample.patient_unique_id,
-//         mainPatientId: sample.main_patient_id || null,
-//         dependentId: sample.dependent_id || null,
-//         physicianId: sample.physician_id || null,
-//         laboratoryId: sample.laboratory_id,
-//         date: sample.date ? new Date(sample.date).toISOString().split('T')[0] : null,
-//         time: sample.time || null,
-//         instruction: sample.instruction || null,
-//         sampleCollectedId: sample.sample_collected_id !== null ? Number(sample.sample_collected_id) : null,
-//         billingId: sample.billing_id || null,
-//         labapprovalId: sample.labapproval_id !== null ? Number(sample.labapproval_id) : null,
-//         patStatus: sample.pat_status || null,
-//         createdOn: sample.created_on,
-//         parseParentId: sample.parse_parent_id,
-//         reportFilename: sample.report_filename || null,
-//       },
-//     }));
-
-//     return {
-//       success: true,
-//       message: "Approved samples fetched successfully",
-//       count: mappedSamples.length,
-//       data: mappedSamples,
-//     };
-//   } catch (error) {
-//     console.error("Fetch Approved Samples Error:", error);
-//     return {
-//       success: false,
-//       message: "Error fetching approved samples",
-//       error: error instanceof Error ? error.message : "Unknown error",
-//     };
-//   }
-// }

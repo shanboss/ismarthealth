@@ -1,10 +1,11 @@
+// app/lab/reports/[patient_id]/[medical_num]/page.tsx
 'use client';
 
 import React, { useEffect, useState, useRef } from 'react';
+import { format } from 'date-fns';
 import { Download, Printer } from 'lucide-react';
-import { useRouter } from 'next/navigation';
-
-/* -------------------- TYPES -------------------- */
+import Link from 'next/link';
+//import { useRouter } from 'next/navigation';
 
 interface ReportData {
   laboratory: {
@@ -18,10 +19,10 @@ interface ReportData {
     sex: string;
     age: string;
     referredDoctor: string;
-    medicalNumber: string;
   };
   tests: Array<{
     slNo: number;
+    investigationName: string;
     testName: string;
     date: string;
     time: string;
@@ -30,79 +31,62 @@ interface ReportData {
     referenceRange: string;
     reviewApprove: string;
     reportStatus: string;
+    sampleCollectedId: number;
   }>;
 }
 
 interface ReportsPageProps {
-  params: {
+  params: Promise<{
     patient_id: string;
     medical_num: string;
-  };
+  }>;
 }
 
-/* -------------------- DATE FORMAT -------------------- */
-
-const formatDate = (date: Date): string => {
-  const day = String(date.getDate()).padStart(2, '0');
-  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  return `${day} ${monthNames[date.getMonth()]} ${date.getFullYear()}`;
-};
-
-/* -------------------- PAGE -------------------- */
-
 export default function ReportsPage({ params }: ReportsPageProps) {
+  const [reportData, setReportData] = useState<ReportData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [resolvedParams, setResolvedParams] = useState<{
     patient_id: string;
     medical_num: string;
   } | null>(null);
-    // Resolve URL parameters
-    useEffect(() => {
-      const resolveParams = async () => {
-        const resolved = await params;
-        setResolvedParams(resolved);
-      };
-      resolveParams();
-    }, [params]);
-  const [reportData, setReportData] = useState<ReportData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const patient_id = resolvedParams?.patient_id;
-  const medical_num = resolvedParams?.medical_num;
-
   const reportContentRef = useRef<HTMLDivElement>(null);
-  const router = useRouter();
-
-  
-  /* -------------------- FETCH DATA -------------------- */
+  //const router = useRouter();
 
   useEffect(() => {
-    const fetchReport = async () => {
-      if (!resolvedParams) return;
+    const resolveParams = async () => {
+      const resolved = await params;
+      setResolvedParams(resolved);
+    };
+    resolveParams();
+  }, [params]);
 
+  useEffect(() => {
+    if (!resolvedParams) return;
+
+    const fetchReportData = async () => {
       try {
         setLoading(true);
-        const res = await fetch(
-          `/api/lab/reports?patient_id=${resolvedParams.patient_id}&medical_num=${resolvedParams.medical_num}`
-        );
+        const { patient_id, medical_num } = resolvedParams;
+        const response = await fetch(`/api/lab/reports?patient_id=${patient_id}&medical_num=${medical_num}`);
 
-        if (!res.ok) throw new Error('Failed to fetch report');
+        if (!response.ok) {
+          throw new Error('Failed to fetch report data');
+        }
 
-        const json = await res.json();
-        if (!json.success) throw new Error(json.message || 'No data found');
+        const result = await response.json();
+        if (!result.success) throw new Error(result.message || 'No data found');
 
-        setReportData(json.data);
+        setReportData(result.data);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Error loading report');
+        setError(err instanceof Error ? err.message : 'An error occurred');
       } finally {
         setLoading(false);
       }
     };
 
-    fetchReport();
+    fetchReportData();
   }, [resolvedParams]);
-
-  /* -------------------- PDF -------------------- */
 
   const handleDownloadPDF = async () => {
     if (!reportContentRef.current) return;
@@ -110,32 +94,41 @@ export default function ReportsPage({ params }: ReportsPageProps) {
 
     html2pdf()
       .set({
-        margin: 10,
-        filename: `Lab_Report_${patient_id}_${medical_num}.pdf`,
+        margin: [10, 10, 10, 10],
+        filename: `Lab_Report_${resolvedParams?.patient_id}_${resolvedParams?.medical_num}.pdf`,
         html2canvas: { scale: 2 },
-        jsPDF: { format: 'a4', orientation: 'portrait' },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
       })
       .from(reportContentRef.current)
       .save();
   };
 
-  /* -------------------- PRINT -------------------- */
-
   const handlePrint = () => {
     if (!reportContentRef.current) return;
 
-    const win = window.open('', '_blank');
-    if (!win) return;
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
 
-    win.document.write(`
+    printWindow.document.write(`
       <html>
         <head>
           <title>Lab Report</title>
           <style>
-            body { font-family: Arial; padding: 20px; }
+            body { font-family: system-ui, -apple-system, sans-serif; margin: 0; padding: 1rem; color: #334155; }
+            @media print { .print\\:hidden { display: none; } }
             table { width: 100%; border-collapse: collapse; }
-            th, td { border: 1px solid #999; padding: 6px; font-size: 12px; }
-            th { background: #f1f1f1; }
+            th, td { border: 1px solid #e2e8f0; padding: 0.5rem; text-align: left; }
+            th { background-color: #f8fafc; font-weight: 600; }
+            .text-xs { font-size: 0.75rem; }
+            .font-bold { font-weight: 700; }
+            .uppercase { text-transform: uppercase; }
+            .text-slate-900 { color: #0f172a; }
+            .text-slate-600 { color: #475569; }
+            .border-b { border-bottom: 1px solid #e2e8f0; }
+            .pb-4 { padding-bottom: 1rem; }
+            .py-4 { padding-top: 1rem; padding-bottom: 1rem; }
+            .mt-6 { margin-top: 1.5rem; }
+            .text-center { text-align: center; }
           </style>
         </head>
         <body>
@@ -144,15 +137,13 @@ export default function ReportsPage({ params }: ReportsPageProps) {
       </html>
     `);
 
-    win.document.close();
-    win.print();
+    printWindow.document.close();
+    printWindow.print();
   };
-
-  /* -------------------- STATES -------------------- */
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center text-slate-600">
         Loading report...
       </div>
     );
@@ -167,92 +158,165 @@ export default function ReportsPage({ params }: ReportsPageProps) {
   }
 
   const { laboratory, patient, tests } = reportData;
-
-  /* -------------------- RENDER -------------------- */
+  const currentDate = format(new Date(), 'dd MMM yyyy');
+  const reportDate = tests[0]?.date ? format(new Date(tests[0].date), 'dd MMM yyyy') : currentDate;
 
   return (
-    <div className="min-h-screen bg-white p-6">
-      <div className="max-w-6xl mx-auto space-y-6">
-
+    <div className="min-h-screen bg-slate-50 p-6 print:p-0 print:bg-white">
+      <div className="max-w-4xl mx-auto bg-white rounded-xl shadow-xl overflow-hidden print:shadow-none print:rounded-none">
+            <Link
+              href="/lab"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-lg transition-colors border border-slate-300 shadow-sm print:hidden"
+              title="Back to Lab Dashboard"
+            >
+              <svg 
+                xmlns="http://www.w3.org/2000/svg" 
+                width="18" 
+                height="18" 
+                viewBox="0 0 24 24" 
+                fill="none" 
+                stroke="currentColor" 
+                strokeWidth="2" 
+                strokeLinecap="round" 
+                strokeLinejoin="round"
+              >
+                <path d="M19 12H5M12 19l-7-7 7-7"/>
+              </svg>
+              <span className="hidden sm:inline"></span>
+            </Link>  
         {/* ACTION BUTTONS */}
-        <div className="flex justify-end gap-3 print:hidden">
-          <button onClick={handleDownloadPDF} className="btn-primary flex gap-2">
-            <Download size={16} /> PDF
+        <div className="flex justify-end gap-3 p-4 print:hidden border-b border-slate-200">
+          <button 
+            onClick={handleDownloadPDF}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm font-medium"
+          >
+            <Download size={16} /> Download PDF
           </button>
-          <button onClick={handlePrint} className="btn-secondary flex gap-2">
+          <button 
+            onClick={handlePrint}
+            className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors text-sm font-medium"
+          >
             <Printer size={16} /> Print
           </button>
         </div>
 
-        {/* REPORT */}
-        <div ref={reportContentRef}>
-
-          {/* LAB HEADER */}
-          <div className="border-b pb-4">
-            <h1 className="text-2xl font-bold uppercase">{laboratory.name}</h1>
-            <p>{laboratory.address}</p>
-            <p><b>Phone:</b> {laboratory.phone}</p>
+        {/* REPORT CONTENT */}
+        <div ref={reportContentRef} className="p-6 print:p-4">
+          
+          {/* HEADER */}
+          <div className="grid grid-cols-2 gap-4 border-b-2 border-slate-300 print:border-b print:border-gray-400 pb-4">
+            <div>
+              <h1 className="text-xl font-black uppercase text-slate-900">{laboratory.name}</h1>
+              <p className="text-sm text-slate-600 mt-1">{laboratory.address}</p>
+              <p className="text-sm text-slate-600 mt-0.5"><span className="font-bold">Phone:</span> {laboratory.phone}</p>
+            </div>
+            <div className="text-right">
+              <h2 className="text-xl font-black uppercase text-slate-900">Laboratory Report</h2>
+              <p className="text-sm text-slate-600 mt-1"><span className="font-bold">Report Date:</span> {reportDate}</p>
+            </div>
           </div>
 
-          {/* TITLE */}
-          <div className="flex justify-between py-4">
-            <h2 className="text-xl font-bold">LABORATORY REPORT</h2>
-            <p>{formatDate(new Date())}</p>
+          {/* PATIENT DETAILS */}
+          <div className="grid grid-cols-3 gap-4 py-4 text-sm border-b-2 border-slate-300 print:border-b print:border-gray-400">
+            <div>
+              <p className="font-bold uppercase text-xs text-slate-700">Patient Name</p>
+              <p className="font-medium text-slate-900 mt-0.5">{patient.name}</p>
+            </div>
+            <div>
+              <p className="font-bold uppercase text-xs text-slate-700">Phone</p>
+              <p className="font-medium text-slate-900 mt-0.5">{patient.phone}</p>
+            </div>
+            <div>
+              <p className="font-bold uppercase text-xs text-slate-700">Sex</p>
+              <p className="font-medium text-slate-900 mt-0.5">{patient.sex}</p>
+            </div>
+            <div>
+              <p className="font-bold uppercase text-xs text-slate-700">Age</p>
+              <p className="font-medium text-slate-900 mt-0.5">{patient.age}</p>
+            </div>
+            <div>
+              <p className="font-bold uppercase text-xs text-slate-700">Referred By</p>
+              <p className="font-medium text-slate-900 mt-0.5">{patient.referredDoctor}</p>
+            </div>
+            <div>
+              <p className="font-bold uppercase text-xs text-slate-700">Medical No</p>
+              <p className="font-medium text-slate-900 mt-0.5">{resolvedParams?.medical_num}</p>
+            </div>
           </div>
 
-          {/* IDS */}
-          <div className="grid grid-cols-4 gap-4 text-sm border-b pb-4">
-            <div><b>Patient ID:</b> {patient_id}</div>
-            <div><b>Medical No:</b> {medical_num}</div>
-            <div><b>Status:</b> {tests[0]?.reportStatus || 'N/A'}</div>
-            <div><b>Report Date:</b> {tests[0]?.date || formatDate(new Date())}</div>
-          </div>
+          {/* TEST DETAILS – GROUPED BY INVESTIGATION NAME */}
+          <div className="mt-6">
+            <h3 className="text-base font-bold uppercase text-slate-900 mb-3">Test Details</h3>
+            <div className="overflow-x-auto border border-slate-300 rounded-lg">
+              <table className="w-full border-collapse text-xs">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-200">
+                    <th className="px-3 py-2 text-left font-bold uppercase text-slate-700 w-12">S.No</th>
+                    <th className="px-3 py-2 text-left font-bold uppercase text-slate-700">Test Name</th>
+                    <th className="px-3 py-2 text-left font-bold uppercase text-slate-700 w-28">Date</th>
+                    <th className="px-3 py-2 text-left font-bold uppercase text-slate-700 w-24">Time</th>
+                    <th className="px-3 py-2 text-left font-bold uppercase text-slate-700">Result</th>
+                    <th className="px-3 py-2 text-left font-bold uppercase text-slate-700 w-20">Unit</th>
+                    <th className="px-3 py-2 text-left font-bold uppercase text-slate-700">Reference Range</th>
+                    <th className="px-3 py-2 text-left font-bold uppercase text-slate-700 w-24">Review</th>
+                    <th className="px-3 py-2 text-left font-bold uppercase text-slate-700 w-24">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(() => {
+                    // Group tests by investigationName
+                    const grouped = tests.reduce((acc, test) => {
+                      const key = (test.investigationName)?test.investigationName.trim():'NA';
+                      if (!acc[key]) acc[key] = [];
+                      acc[key].push(test);
+                      return acc;
+                    }, {} as Record<string, typeof tests>);
 
-          {/* PATIENT */}
-          <div className="grid grid-cols-5 gap-4 py-4 text-sm border-b">
-            <div><b>Name:</b> {patient.name}</div>
-            <div><b>Phone:</b> {patient.phone}</div>
-            <div><b>Sex:</b> {patient.sex}</div>
-            <div><b>Age:</b> {patient.age}</div>
-            <div><b>Referred By:</b> {patient.referredDoctor}</div>
-          </div>
+                    return Object.entries(grouped).map(([investigationName, groupTests]) => (
+                      <React.Fragment key={investigationName}>
+                        {/* Group header row */}
+                        <tr className="bg-slate-100/70 border-y border-slate-300">
+                          <td 
+                            colSpan={9}
+                            className="px-4 py-2.5 font-bold text-slate-800 uppercase tracking-wide text-sm"
+                          >
+                            {investigationName}
+                          </td>
+                        </tr>
 
-          {/* TEST TABLE */}
-          <table className="w-full mt-4 text-sm">
-            <thead>
-              <tr>
-                <th>S.No</th>
-                <th>Test Name</th>
-                <th>Date</th>
-                <th>Time</th>
-                <th>Result</th>
-                <th>Unit</th>
-                <th>Reference Range</th>
-                <th>Review</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {tests.map((t) => (
-                <tr key={t.slNo}>
-                  <td>{t.slNo}</td>
-                  <td>{t.testName}</td>
-                  <td>{t.date}</td>
-                  <td>{t.time}</td>
-                  <td>{t.sampleResult}</td>
-                  <td>{t.unit}</td>
-                  <td>{t.referenceRange}</td>
-                  <td>{t.reviewApprove}</td>
-                  <td>{t.reportStatus}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                        {/* Tests in this group */}
+                        {groupTests.map((test) => (
+                          <tr 
+                            key={test.slNo} 
+                            className="border-b border-slate-100 last:border-b-0 hover:bg-slate-50"
+                          >
+                            <td className="px-3 py-2 font-medium text-slate-900">{test.slNo}</td>
+                            <td className="px-3 py-2 font-medium text-slate-900">{test.testName}</td>
+                            <td className="px-3 py-2 text-slate-600">{test.date}</td>
+                            <td className="px-3 py-2 text-slate-600">{test.time}</td>
+                            <td className="px-3 py-2 font-medium text-slate-700">{test.sampleResult}</td>
+                            <td className="px-3 py-2 text-slate-600">{test.unit}</td>
+                            <td className="px-3 py-2 text-slate-600">{test.referenceRange}</td>
+                            <td className="px-3 py-2 text-slate-600">{test.reviewApprove}</td>
+                            <td className="px-3 py-2 text-slate-600">
+                              
+                              {test.sampleCollectedId == 2 ? 
+                              <button className={`w-full inline-flex items-center justify-center gap-1 font-bold py-1.5 px-2.5 rounded text-[10px] transition-all bg-red-600 hover:bg-red-700 text-white`}> Available </button> : test.reportStatus}
+                            </td>
+                          </tr>
+                        ))}
+                      </React.Fragment>
+                    ));
+                  })()}
+                </tbody>
+              </table>
+            </div>
+          </div>
 
           {/* FOOTER */}
-          <p className="text-center text-xs mt-6">
-            This is a computer-generated laboratory report.
-          </p>
+          <div className="px-6 py-4 border-t-2 border-slate-300 print:border-t print:border-gray-400 text-center text-xs text-slate-500 font-medium mt-6">
+            This is a computer-generated laboratory report. Generated on {currentDate}
+          </div>
         </div>
       </div>
     </div>
