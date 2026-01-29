@@ -6,7 +6,7 @@ import crypto from "crypto";
 
 async function generatePatientUniqueId(
   firstName: string,
-  phone: string
+  phone: string,
 ): Promise<string> {
   const prefix = "ISD";
   const firstTwoChars = firstName.substring(0, 2).toLowerCase();
@@ -19,7 +19,7 @@ async function generatePatientUniqueId(
     const existing = await query<RowDataPacket[]>(
       `SELECT patient_unique_id FROM referral_patient_details 
        WHERE patient_unique_id = ? LIMIT 1`,
-      [patientUniqueId]
+      [patientUniqueId],
     );
     if (existing.length === 0) break;
     attempts++;
@@ -38,9 +38,7 @@ function hashPassword(password: string): string {
 function getISTDateTime(): string {
   const now = new Date();
   const istTime = new Date(
-    now.getTime() +
-      5.5 * 60 * 60 * 1000 -
-      now.getTimezoneOffset() * 60 * 1000
+    now.getTime() + 5.5 * 60 * 60 * 1000 - now.getTimezoneOffset() * 60 * 1000,
   );
   return istTime.toISOString().slice(0, 19).replace("T", " ");
 }
@@ -59,7 +57,7 @@ export async function POST(request: NextRequest) {
     if (!laboratoryId) {
       return NextResponse.json(
         { error: "Laboratory ID not found" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -92,20 +90,22 @@ export async function POST(request: NextRequest) {
     if (!patient?.firstName || !patient?.phone) {
       return NextResponse.json(
         { error: "Missing required fields: patient firstName and phone" },
-        { status: 400 }
+        { status: 400 },
       );
     }
     if (!specialist?.name || !specialist?.specialty || !specialist?.hospital) {
       return NextResponse.json(
         {
-          error: "Missing required fields: specialist name, specialty, and hospital",
+          error:
+            "Missing required fields: specialist name, specialty, and hospital",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
-    const patientUniqueIdFromRequest = (patient as { patient_unique_id?: string })
-      .patient_unique_id;
+    const patientUniqueIdFromRequest = (
+      patient as { patient_unique_id?: string }
+    ).patient_unique_id;
     let existingPatients: RowDataPacket[] = [];
 
     if (patientUniqueIdFromRequest) {
@@ -113,7 +113,7 @@ export async function POST(request: NextRequest) {
         `SELECT referral_patient_id, patient_unique_id 
          FROM referral_patient_details 
          WHERE patient_unique_id = ? LIMIT 1`,
-        [patientUniqueIdFromRequest]
+        [patientUniqueIdFromRequest],
       );
     }
     if (existingPatients.length === 0) {
@@ -121,7 +121,7 @@ export async function POST(request: NextRequest) {
         `SELECT referral_patient_id, patient_unique_id 
          FROM referral_patient_details 
          WHERE phonenum = ? LIMIT 1`,
-        [patient.phone]
+        [patient.phone],
       );
     }
 
@@ -166,13 +166,13 @@ export async function POST(request: NextRequest) {
             patient.age || null,
             now,
             referralPatientId,
-          ]
+          ],
         );
       }
     } else {
       patientUniqueId = await generatePatientUniqueId(
         patient.firstName,
-        patient.phone
+        patient.phone,
       );
       const password = Math.random().toString(36).slice(-4);
       const hashedPassword = hashPassword(password);
@@ -206,13 +206,13 @@ export async function POST(request: NextRequest) {
           0,
           0,
           0,
-        ]
+        ],
       );
       referralPatientId = insertPatientResult.insertId;
     }
 
     const maxRow = await query<RowDataPacket[]>(
-      `SELECT COALESCE(MAX(consultationId), 0) AS max_id FROM superspeciality_consultation`
+      `SELECT COALESCE(MAX(consultationId), 0) AS max_id FROM superspeciality_consultation`,
     );
     const consultationId = (Number(maxRow[0]?.max_id) || 0) + 1;
 
@@ -222,7 +222,7 @@ export async function POST(request: NextRequest) {
        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'superspeciality_consultation'
        AND IS_NULLABLE = 'NO' AND (COLUMN_DEFAULT IS NULL OR COLUMN_DEFAULT = '')
        AND EXTRA NOT LIKE '%auto_increment%'
-       ORDER BY ORDINAL_POSITION`
+       ORDER BY ORDINAL_POSITION`,
     );
 
     const nowStr = getISTDateTime();
@@ -237,8 +237,19 @@ export async function POST(request: NextRequest) {
       if (lower === "status") return 0;
       if (lower === "patient_dep_id") return 0;
       if (lower === "superspeciality_id") return 0;
-      if (lower === "comments" || lower === "notes" || lower === "remarks" || lower === "comment") return "";
-      if (type.includes("int") || type.includes("decimal") || type.includes("float")) return 0;
+      if (
+        lower === "comments" ||
+        lower === "notes" ||
+        lower === "remarks" ||
+        lower === "comment"
+      )
+        return "";
+      if (
+        type.includes("int") ||
+        type.includes("decimal") ||
+        type.includes("float")
+      )
+        return 0;
       if (type.includes("date") || type.includes("time")) return nowStr;
       return "";
     };
@@ -246,12 +257,12 @@ export async function POST(request: NextRequest) {
     const cols = requiredColumns.map((r) => r.COLUMN_NAME as string);
     const placeholders = cols.map(() => "?").join(", ");
     const values = requiredColumns.map((r) =>
-      defaultFor(r.COLUMN_NAME as string, r.DATA_TYPE as string)
+      defaultFor(r.COLUMN_NAME as string, r.DATA_TYPE as string),
     );
 
     await query<ResultSetHeader>(
       `INSERT INTO superspeciality_consultation (${cols.join(", ")}) VALUES (${placeholders})`,
-      values
+      values,
     );
 
     const referralId = `SS${consultationId}`;
@@ -265,7 +276,7 @@ export async function POST(request: NextRequest) {
           patientUniqueId,
         },
       },
-      { status: 201 }
+      { status: 201 },
     );
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
@@ -276,7 +287,7 @@ export async function POST(request: NextRequest) {
         error: "Failed to add superspecialty referral",
         details: message,
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
