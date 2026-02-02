@@ -5,6 +5,7 @@ import { RowDataPacket } from "mysql2";
 
 // Define an interface for the Laboratory Test row to ensure type safety
 interface LabTestRow extends RowDataPacket {
+  laboratory_testid: number;
   laboratory_id: number;
   laboratory_tests: string;
   custom_test_name: string | null;
@@ -37,96 +38,80 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const searchQuery = searchParams.get("search") || "";
 
-    // 4. Build dynamic SQL for lab catalog (ltd) WHERE clause
-    let whereSql = "WHERE ltd.laboratory_id = ? AND ltd.status = 'ACTIVE'";
+    // 4. Build dynamic SQL - primary source: investigation_test_details, lab overrides from laboratory_test_details
+    let whereSql = "WHERE (itd.active = 1 OR itd.active IS NULL)";
     const params: (string | number)[] = [laboratoryId];
 
     if (searchQuery.trim()) {
       const searchWildcard = `%${searchQuery}%`;
       whereSql += ` AND (
-        ltd.laboratory_tests LIKE ? OR 
-        ltd.custom_test_name LIKE ? OR 
-        ltd.code LIKE ? OR 
-        ltd.test_type LIKE ? OR 
-        ltd.sub_department LIKE ? OR
-        itd.test_name LIKE ?
+        itd.test_name LIKE ? OR 
+        id.investigation_name LIKE ? OR 
+        COALESCE(ltd.custom_test_name, '') LIKE ? OR 
+        COALESCE(ltd.code, '') LIKE ? OR 
+        COALESCE(ltd.test_type, id.investigation_name) LIKE ? OR 
+        COALESCE(ltd.sub_department, id.investigation_name) LIKE ?
       )`;
       params.push(searchWildcard, searchWildcard, searchWildcard, searchWildcard, searchWildcard, searchWildcard);
     }
 
-    // 5. Fetch lab catalog tests (with investigation names where join matches)
+    // 5. Fetch lab tests from investigation_test_details (primary source) with lab-specific overrides
     const labSql = `
-      SELECT 
-        ltd.*,
-        itd.test_name
-      FROM laboratory_test_details ltd
-      LEFT JOIN investigation_test_details itd ON itd.parse_id = CAST(ltd.laboratory_tests AS UNSIGNED)
-      ${whereSql} 
-      ORDER BY ltd.sub_department ASC, ltd.sort_order ASC, ltd.laboratory_tests ASC
-    `;
-    const labTests = await query<LabTestRow[]>(labSql, params);
-
-    // 6. Fetch investigation tests (e.g. MRI, X-RAY) not in this lab's catalog
-    const invSearchParams: (string | number)[] = [laboratoryId, laboratoryId];
-    let invWhere = `WHERE (itd.active = 1 OR itd.active IS NULL) AND NOT EXISTS (
-      SELECT 1 FROM laboratory_test_details ltd 
-      WHERE ltd.laboratory_id = ? AND (ltd.laboratory_tests = CAST(itd.parse_id AS CHAR) OR ltd.laboratory_tests = CONCAT('', itd.parse_id))
-    )`;
-    if (searchQuery.trim()) {
-      const searchWildcard = `%${searchQuery}%`;
-      invWhere += ` AND (itd.test_name LIKE ? OR id.investigation_name LIKE ?)`;
-      invSearchParams.push(searchWildcard, searchWildcard);
-    }
-    const invSql = `
       SELECT 
         itd.parse_id AS laboratory_testid,
         CAST(itd.parse_id AS CHAR) AS laboratory_tests,
-        '' AS code,
-        0 AS display_order,
-        '' AS mnemonics,
-        id.investigation_name AS test_type,
-        id.investigation_name AS sub_department,
-        '' AS sample_type,
-        '' AS container_type,
-        '' AS confidential,
-        '' AS methodology,
-        '' AS transport_temperature,
-        '' AS tat,
-        '' AS outsourcing_status,
-        '' AS instrument,
+        COALESCE(ltd.code, '') AS code,
+        COALESCE(ltd.display_order, 0) AS display_order,
+        COALESCE(ltd.mnemonics, '') AS mnemonics,
+        COALESCE(ltd.test_type, id.investigation_name) AS test_type,
+        COALESCE(ltd.sub_department, id.investigation_name) AS sub_department,
+        COALESCE(ltd.sample_type, '') AS sample_type,
+        COALESCE(ltd.container_type, '') AS container_type,
+        COALESCE(ltd.confidential, '') AS confidential,
+        COALESCE(ltd.methodology, '') AS methodology,
+        COALESCE(ltd.transport_temperature, '') AS transport_temperature,
+        COALESCE(ltd.tat, '') AS tat,
+        COALESCE(ltd.outsourcing_status, '') AS outsourcing_status,
+        COALESCE(ltd.instrument, '') AS instrument,
         ? AS laboratory_id,
-        0 AS test_price,
-        '' AS custom_test_name,
-        '' AS instruction,
-        '' AS test_method,
-        'ACTIVE' AS status,
-        '' AS status_changed_by,
-        '' AS status_changed_on,
-        '' AS unit,
-        '' AS reference_range,
-        NULL AS age_gender_specific,
-        NULL AS critical_alert,
-        NULL AS interpretation,
-        0 AS sort_order,
-        0 AS title_required,
+        COALESCE(ltd.test_price, 0) AS test_price,
+        COALESCE(ltd.custom_test_name, '') AS custom_test_name,
+        COALESCE(ltd.instruction, '') AS instruction,
+        COALESCE(ltd.test_method, '') AS test_method,
+        COALESCE(ltd.status, 'ACTIVE') AS status,
+        COALESCE(ltd.status_changed_by, '') AS status_changed_by,
+        COALESCE(ltd.status_changed_on, '') AS status_changed_on,
+        COALESCE(ltd.unit, '') AS unit,
+        COALESCE(ltd.reference_range, '') AS reference_range,
+        ltd.age_gender_specific,
+        ltd.critical_alert,
+        ltd.interpretation,
+        COALESCE(ltd.sort_order, 0) AS sort_order,
+        COALESCE(ltd.title_required, 0) AS title_required,
         itd.test_name AS test_name
       FROM investigation_test_details itd
       JOIN investigation_details id ON id.investigation_id = itd.investigation_id AND (id.active = 1 OR id.active IS NULL)
-      ${invWhere}
-      ORDER BY id.investigation_name ASC, itd.test_name ASC
+      LEFT JOIN laboratory_test_details ltd ON (ltd.laboratory_tests = CAST(itd.parse_id AS CHAR) OR ltd.laboratory_tests = CONCAT('', itd.parse_id)) AND ltd.laboratory_id = ? AND ltd.status = 'ACTIVE'
+      ${whereSql}
+      ORDER BY COALESCE(ltd.sub_department, id.investigation_name) ASC, COALESCE(ltd.sort_order, 0) ASC, itd.test_name ASC
     `;
-    const invTests = await query<LabTestRow[]>(invSql, invSearchParams);
+    params.push(laboratoryId);
+    const rawTests = await query<LabTestRow[]>(labSql, params);
 
-    // 7. Merge and dedupe by laboratory_testid (lab catalog wins)
-    const seen = new Set<number>();
-    const tests = [...labTests];
-    for (const row of invTests) {
+    // 6. Deduplicate by laboratory_testid (prefer rows with lab overrides when available)
+    const seenIds = new Map<number, LabTestRow>();
+    for (const row of rawTests) {
       const id = Number(row.laboratory_testid);
-      if (!seen.has(id)) {
-        seen.add(id);
-        tests.push(row);
+      const existing = seenIds.get(id);
+      const hasLabOverride = Number(row.test_price) > 0 || (row.custom_test_name && row.custom_test_name.trim() !== "");
+      const existingHasOverride = existing && (Number(existing.test_price) > 0 || (existing.custom_test_name && existing.custom_test_name.trim() !== ""));
+      if (!existing || (hasLabOverride && !existingHasOverride)) {
+        seenIds.set(id, row);
       }
     }
+    const tests = Array.from(seenIds.values());
+
+    // 7. Sort tests
     tests.sort((a, b) => {
       const deptA = (a.sub_department || "Other").toLowerCase();
       const deptB = (b.sub_department || "Other").toLowerCase();
@@ -136,7 +121,7 @@ export async function GET(request: NextRequest) {
       return nameA.localeCompare(nameB);
     });
 
-    // 6. Convert BigInt fields (like test_price) to strings for JSON serialization
+    // 8. Convert BigInt fields (like test_price) to strings for JSON serialization
     const serializedTests = tests.map((test) => ({
       ...test,
       test_price: test.test_price.toString(),

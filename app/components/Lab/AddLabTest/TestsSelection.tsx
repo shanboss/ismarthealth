@@ -30,9 +30,11 @@ export default function TestsSelection({
 
         if (response.ok && data.success) {
           setTests(data.data || []);
-          // Initialize all groups as closed
+          // Initialize all groups as closed (use lowercase keys for consistency)
           const departments = new Set(
-            data.data.map((t: LaboratoryTest) => t.sub_department || "Other")
+            data.data.map((t: LaboratoryTest) =>
+              (t.sub_department || "Other").toLowerCase()
+            )
           );
           setOpenGroups(
             Object.fromEntries(Array.from(departments).map((d) => [d, false]))
@@ -51,15 +53,22 @@ export default function TestsSelection({
     fetchTests();
   }, []);
 
-  // Group tests by sub_department
+  // Group tests by sub_department (case-insensitive to merge "BIOCHEMISTRY" and "Biochemistry")
   const groupedTests = useMemo(() => {
     const groups: Record<string, LaboratoryTest[]> = {};
+    const displayNames: Record<string, string> = {};
     tests.forEach((test) => {
       const dept = test.sub_department || "Other";
-      if (!groups[dept]) groups[dept] = [];
-      groups[dept].push(test);
+      const key = dept.toLowerCase();
+      if (!groups[key]) {
+        groups[key] = [];
+        // Use title case for consistent display when merging differently-cased names
+        displayNames[key] =
+          dept.charAt(0).toUpperCase() + dept.slice(1).toLowerCase();
+      }
+      groups[key].push(test);
     });
-    return groups;
+    return { groups, displayNames };
   }, [tests]);
 
   // Filter tests based on search query
@@ -68,20 +77,22 @@ export default function TestsSelection({
     if (!q) return groupedTests;
 
     const filtered: Record<string, LaboratoryTest[]> = {};
-    Object.entries(groupedTests).forEach(([dept, tests]) => {
+    const filteredDisplayNames: Record<string, string> = {};
+    Object.entries(groupedTests.groups).forEach(([key, tests]) => {
       const matchingTests = tests.filter(
         (test) =>
           (test.test_name && test.test_name.toLowerCase().includes(q)) ||
-          test.laboratory_tests.toLowerCase().includes(q) ||
+          (test.laboratory_tests && test.laboratory_tests.toLowerCase().includes(q)) ||
           (test.custom_test_name && test.custom_test_name.toLowerCase().includes(q)) ||
           (test.code && test.code.toLowerCase().includes(q)) ||
           (test.test_type && test.test_type.toLowerCase().includes(q))
       );
       if (matchingTests.length > 0) {
-        filtered[dept] = matchingTests;
+        filtered[key] = matchingTests;
+        filteredDisplayNames[key] = groupedTests.displayNames[key];
       }
     });
-    return filtered;
+    return { groups: filtered, displayNames: filteredDisplayNames };
   }, [groupedTests, searchQuery]);
 
   const isSearching = searchQuery.trim().length > 0;
@@ -159,35 +170,36 @@ export default function TestsSelection({
 
           <div className="space-y-4">
             <p className="text-sm text-foreground/80">Select tests</p>
-            {Object.entries(filteredGroups).length === 0 ? (
+            {Object.entries(filteredGroups.groups).length === 0 ? (
               <p className="py-6 text-center text-sm text-foreground/60">
                 {isSearching
                   ? "No tests found matching your search"
                   : "No tests available"}
               </p>
             ) : (
-              Object.entries(filteredGroups).map(([dept, deptTests]) => {
-                const opened = isSearching ? true : !!openGroups[dept];
+              Object.entries(filteredGroups.groups).map(([key, deptTests]) => {
+                const displayName = filteredGroups.displayNames[key] || key;
+                const opened = isSearching ? true : !!openGroups[key];
                 return (
                   <div
-                    key={dept}
+                    key={key}
                     className="overflow-hidden rounded-lg border border-foreground/10 bg-background shadow-sm"
                   >
                     <button
                       type="button"
-                      onClick={() => toggleGroup(dept)}
+                      onClick={() => toggleGroup(key)}
                       className="flex w-full items-center justify-between px-4 py-3 text-left font-semibold text-foreground hover:bg-foreground/5"
                       aria-expanded={opened}
-                      aria-controls={`group-${dept}`}
+                      aria-controls={`group-${key}`}
                     >
-                      <span>{dept}</span>
+                      <span>{displayName}</span>
                       <span className="select-none text-xl leading-none">
                         {opened ? "−" : "+"}
                       </span>
                     </button>
                     {opened && (
                       <ul
-                        id={`group-${dept}`}
+                        id={`group-${key}`}
                         className="divide-y divide-foreground/10"
                       >
                         {deptTests.map((test) => {

@@ -4,7 +4,6 @@ import { useState } from "react";
 import { MagnifyingGlassIcon, UserIcon } from "@heroicons/react/24/outline";
 import { PatientQueueResult } from "../../../config/lab/AllLabTest/SearchPatient";
 
-
 export default function SearchPatient({
   onNext,
 }: {
@@ -33,8 +32,8 @@ export default function SearchPatient({
     try {
       const response = await fetch(
         `/api/lab/patient-queue?search=${encodeURIComponent(
-          phone.trim()
-        )}&limit=10`
+          phone.trim(),
+        )}&limit=10`,
       );
       const data = await response.json();
 
@@ -169,7 +168,7 @@ export default function SearchPatient({
                         <div>
                           <span className="font-medium">Refer Date:</span>{" "}
                           {new Date(patient.refer_date).toLocaleDateString(
-                            "en-GB"
+                            "en-GB",
                           )}
                         </div>
                         <div>
@@ -198,7 +197,6 @@ export default function SearchPatient({
           </div>
         )}
       </div>
-13W
       <div className="flex justify-between">
         <div className="text-sm text-foreground/60">
           {selectedPatient ? (
