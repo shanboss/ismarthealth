@@ -469,6 +469,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
+
 // export async function fetchApprovedSamples(
 //   medicalNum: string,
 //   patientId: string

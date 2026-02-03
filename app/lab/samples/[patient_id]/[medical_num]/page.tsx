@@ -203,6 +203,87 @@ export default function SampleDetailsPage({ params }: BillingPageProps) {
     });
   };
 
+  const handleApproveAllSamples = async () => {
+    if (!patientData || !resolvedParams) return;
+
+    // First, validate that all samples can be approved (not already approved)
+    const alreadyApprovedTests: string[] = [];
+    for (let i = 0; i < patientData.patientTestDetails.length; i++) {
+      const test = patientData.patientTestDetails[i];
+      if ((test.sampleCollectedId ?? null) !== null && test.sampleCollectedId >= 1) {
+        alreadyApprovedTests.push(test.testName);
+      }
+    }
+
+    // If there are already approved tests, show error and don't proceed
+    if (alreadyApprovedTests.length > 0) {
+      setError(`Some samples are already approved: ${alreadyApprovedTests.join(', ')}`);
+      return;
+    }
+
+    setIsUpdating(-1); // Use -1 to indicate "approve all" mode
+
+    try {
+      // Approve all samples sequentially
+      for (let i = 0; i < patientData.patientTestDetails.length; i++) {
+        const test = patientData.patientTestDetails[i];
+
+        const requestBody = {
+          patient_unique_id: resolvedParams.patient_id,
+          medical_num: resolvedParams.medical_num,
+          lab_testname: test.id,
+          sample_collected_status: 1,
+        };
+
+        console.log(`Approving sample ${i + 1}/${patientData.patientTestDetails.length}:`, requestBody);
+
+        const response = await fetch("/api/lab/samples", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(requestBody),
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+          throw new Error(`Failed to approve ${test.testName}: ${result.error || result.message || "Unknown error"}`);
+        }
+
+        console.log(`Sample ${i + 1} approved successfully:`, result);
+      }
+
+      // Update local state to reflect all samples as approved
+      setSamplesCollected(prev => {
+        const newSet = new Set(prev);
+        for (let i = 0; i < patientData.patientTestDetails.length; i++) {
+          newSet.add(i);
+        }
+        return newSet;
+      });
+
+      // Refresh the patient data to get the updated status
+      const refreshResponse = await fetch(
+        `/api/lab/samples?patient_id=${resolvedParams.patient_id}&medical_num=${resolvedParams.medical_num}`
+      );
+
+      if (refreshResponse.ok) {
+        const refreshResult = await refreshResponse.json();
+        setPatientData(refreshResult.data);
+        console.log("Patient data refreshed after approving all samples");
+      }
+
+      alert('All samples approved successfully!');
+      setError(null);
+    } catch (err) {
+      console.error("Error approving all samples:", err);
+      setError(err instanceof Error ? err.message : "Failed to approve all samples");
+    } finally {
+      setIsUpdating(null);
+    }
+  };
+
   const handleDownloadPDF = async () => {
     if (billContentRef.current) {
       const canvas = await html2canvas(billContentRef.current, {
@@ -339,6 +420,16 @@ export default function SampleDetailsPage({ params }: BillingPageProps) {
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
+        {/* Error Alert */}
+        {error && (
+          <div className="mb-4 bg-red-50 border-l-4 border-red-500 rounded-lg p-4 flex items-start gap-3">
+            <div>
+              <p className="font-semibold text-red-900">Error</p>
+              <p className="text-red-700 text-sm">{error}</p>
+            </div>
+          </div>
+        )}
+
         <div ref={billContentRef} className="bg-white shadow-lg rounded-xl overflow-hidden print:shadow-none print:rounded-none">
           {/* Sample Details Report Header */}
           <div className="px-6 py-6 border-b-2 border-slate-300 print:border-b print:border-gray-400 flex flex-nowrap justify-between items-center gap-4">
@@ -493,6 +584,28 @@ export default function SampleDetailsPage({ params }: BillingPageProps) {
                     <tr>
                       <td colSpan={6} className="p-8 text-center text-slate-400 italic">
                         No tests assigned to this medical number.
+                      </td>
+                    </tr>
+                  )}
+                  {/* Approve All Button Row */}
+                  {patientTestDetails.length > 0 && (
+                    <tr className="bg-blue-50 border-t-2 border-blue-200">
+                      <td colSpan={5} className="p-3"></td>
+                      <td className="p-3 text-center print:hidden">
+                        <button
+                          onClick={() => handleApproveAllSamples()}
+                          disabled={isUpdating !== null}
+                          className={`w-full inline-flex items-center justify-center gap-1 font-bold py-1.5 px-2.5 rounded text-[10px] transition-all ${
+                            isUpdating === -1
+                              ? 'bg-gray-500 text-white cursor-wait'
+                              : 'bg-blue-600 hover:bg-blue-700 text-white'
+                          }`}
+                          title="Approve all samples"
+                        >
+                          {isUpdating === -1
+                            ? "Approving All..."
+                            : "Approve All"}
+                        </button>
                       </td>
                     </tr>
                   )}

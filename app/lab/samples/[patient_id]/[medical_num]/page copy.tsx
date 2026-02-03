@@ -36,7 +36,7 @@ interface PatientDepDetailsData {
 }
 
 interface TestDetail {
-  id:number;
+  id: number;
   testId: string;
   testName: string;
   date: string;
@@ -45,7 +45,7 @@ interface TestDetail {
   billingStatus: string;
   status: string;
   price: string;
-  sampleCollectedId?: number | 0;
+  sampleCollectedId?: number | null;
   billingId: number | null;
   labapprovalId?: number | null;
   investigationId?: number | null;
@@ -80,7 +80,7 @@ export default function SampleDetailsPage({ params }: BillingPageProps) {
     resolveParams();
   }, [params]);
 
-  // Fetch data from the API
+  // Fetch data from the API (GET endpoint)
   useEffect(() => {
     if (!resolvedParams) return;
 
@@ -107,13 +107,26 @@ export default function SampleDetailsPage({ params }: BillingPageProps) {
     fetchBillingData();
   }, [resolvedParams]);
 
+  /**
+   * Updated to match new route.ts POST API
+   * 
+   * Old request format:
+   * {
+   *   patient_id, medical_num, testId, billingId, id
+   * }
+   * 
+   * New request format (PHP CodeIgniter compatible):
+   * {
+   *   patient_unique_id, medical_num, lab_testname, sample_collected_status
+   * }
+   */
   const handleSamplesCollected = async (index: number) => {
     if (!patientData || !resolvedParams) return;
 
     const test = patientData.patientTestDetails[index];
 
-    // If sample is already collected (sampleCollectedId == 2), do nothing
-    if ((test.sampleCollectedId ?? 0) >= 1) {
+    // If sample is already collected (sampleCollectedId == 1 or 2), do nothing
+    if ((test.sampleCollectedId ?? null) !== null && test.sampleCollectedId >= 1) {
       console.log("Sample already marked as collected");
       return;
     }
@@ -121,25 +134,39 @@ export default function SampleDetailsPage({ params }: BillingPageProps) {
     setIsUpdating(index);
 
     try {
+      // Updated request body to match new route.ts API
+      const requestBody = {
+        patient_unique_id: resolvedParams.patient_id,        // Updated field name
+        medical_num: resolvedParams.medical_num,
+        lab_testname: test.id,                               // Changed from testId to lab_testname (use ID)
+        sample_collected_status: 1,                          // New required field: set to 1 for collected
+      };
+
+      console.log("Sending sample collection request:", requestBody);
+
       const response = await fetch("/api/lab/samples", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          patient_id: resolvedParams.patient_id,
-          medical_num: resolvedParams.medical_num,
-          testId: test.testId,
-          billingId: test.billingId,
-          id:test.id
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(result.error || "Failed to mark sample as collected");
+        throw new Error(result.error || result.message || "Failed to mark sample as collected");
       }
+
+      // Log the successful response with new format
+      console.log("Sample collection response:", {
+        success: result.success,
+        mainRecordsUpdated: result.mainRecordsUpdated,
+        childRecordsUpdated: result.childRecordsUpdated,
+        totalRecordsUpdated: result.totalRecordsUpdated,
+        allTestsCollected: result.allTestsCollected,
+        labTestStatusUpdated: result.labTestStatusUpdated,
+      });
 
       // Update local state to reflect the sample as collected
       setSamplesCollected(prev => {
@@ -156,9 +183,10 @@ export default function SampleDetailsPage({ params }: BillingPageProps) {
       if (refreshResponse.ok) {
         const refreshResult = await refreshResponse.json();
         setPatientData(refreshResult.data);
+        console.log("Patient data refreshed after sample collection");
       }
 
-      console.log("Sample marked as collected successfully:", result);
+      console.log("Sample marked as collected successfully");
     } catch (err) {
       console.error("Error marking sample as collected:", err);
       alert(err instanceof Error ? err.message : "Failed to mark sample as collected");
@@ -176,116 +204,43 @@ export default function SampleDetailsPage({ params }: BillingPageProps) {
   };
 
   const handleDownloadPDF = async () => {
-    if (!billContentRef.current) return;
-
-    try {
-      const html2pdf = (await import('html2pdf.js')).default;
-      const element = billContentRef.current;
-
-      const clonedElement = element.cloneNode(true) as HTMLElement;
-      clonedElement.style.backgroundColor = '#ffffff';
-
-      clonedElement.querySelectorAll<HTMLElement>('*').forEach((el) => {
-        el.style.backgroundColor = window.getComputedStyle(el).backgroundColor || 'transparent';
-        el.style.color = window.getComputedStyle(el).color || '#000000';
+    if (billContentRef.current) {
+      const canvas = await html2canvas(billContentRef.current, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: '#ffffff',
       });
+      const image = canvas.toDataURL('image/png');
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4',
+      });
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      const imgHeight = (canvas.height * pdfWidth) / canvas.width;
+      let position = 0;
 
-      html2pdf()
-        .set({
-          margin: 10,
-          filename: `sample_details_${resolvedParams?.patient_id}_${resolvedParams?.medical_num}.pdf`,
-          image: { type: 'jpeg', quality: 0.98 },
-          html2canvas: {
-            scale: 2,
-            useCORS: true,
-            allowTaint: true,
-            backgroundColor: '#ffffff'
-          },
-          jsPDF: { orientation: 'portrait', unit: 'mm', format: 'a4' },
-        }).from(clonedElement).save();
-    } catch (err) {
-      console.error('PDF generation error:', err);
-      alert('Failed to generate PDF');
+      pdf.addImage(image, 'PNG', 0, position, pdfWidth, imgHeight);
+      while (imgHeight > position + pdfHeight) {
+        position += pdfHeight;
+        pdf.addPage();
+        pdf.addImage(image, 'PNG', 0, -position, pdfWidth, imgHeight);
+      }
+      pdf.save('sample-details-report.pdf');
     }
   };
 
   const handlePrint = () => {
-    if (!billContentRef.current) return;
-
-    const printWindow = window.open('', '_blank', 'height=900,width=1200');
-    if (!printWindow) {
-      alert('Please allow pop-ups to print');
-      return;
-    }
-
-    const styles = Array.from(document.querySelectorAll('link[rel="stylesheet"], style'))
-      .map(style => style.outerHTML)
-      .join('\n');
-
-    const content = billContentRef.current.innerHTML;
-
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>Sample Details Report - ${resolvedParams?.patient_id}</title>
-          ${styles} 
-          <style>
-            @page {
-              size: A4 portrait;
-              margin: 10mm;
-            }
-            body {
-              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-              background-color: #fff;
-              color: #000;
-              margin: 0;
-              padding: 0;
-            }
-            .print\\:hidden {
-              display: none !important;
-            }
-            .print\\:border {
-              border: 1px solid #999;
-            }
-            .print\\:border-b {
-              border-bottom: 1px solid #999;
-            }
-            .print\\:border-t {
-              border-top: 1px solid #999;
-            }
-            .print\\:border-gray-400 {
-              border-color: #999;
-            }
-            .print\\:divide-y > * + * {
-              border-top: 1px solid #999;
-            }
-            .print\\:divide-gray-400 {
-              border-color: #999;
-            }
-            @media print {
-              body { margin: 0; padding: 0; }
-              .no-print { display: none; }
-            }
-          </style>
-        </head>
-        <body>
-          ${content}
-        </body>
-      </html>
-    `);
-    printWindow.document.close();
-    setTimeout(() => {
-      printWindow.print();
-      printWindow.close();
-    }, 250);
+    window.print();
   };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-slate-50">
+      <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <p className="text-slate-600 text-lg">Loading sample details...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-slate-600 font-medium">Loading billing details...</p>
         </div>
       </div>
     );
@@ -293,9 +248,16 @@ export default function SampleDetailsPage({ params }: BillingPageProps) {
 
   if (error) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-slate-50">
+      <div className="flex items-center justify-center min-h-screen bg-red-50">
         <div className="text-center">
-          <p className="text-red-600 text-lg">Error: {error}</p>
+          <h2 className="text-2xl font-bold text-red-600 mb-2">Error</h2>
+          <p className="text-red-500 mb-4">{error}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+          >
+            Retry
+          </button>
         </div>
       </div>
     );
@@ -303,59 +265,81 @@ export default function SampleDetailsPage({ params }: BillingPageProps) {
 
   if (!patientData) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-slate-50">
+      <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <p className="text-slate-600 text-lg">No data available</p>
+          <p className="text-slate-600 font-medium">No data available</p>
         </div>
       </div>
     );
   }
 
-  const { patientQueue, patientDepDetails, patientTestDetails, labInfo } = patientData;
+  const {
+    patientQueue,
+    patientDepDetails,
+    patientTestDetails,
+    labInfo,
+  } = patientData;
 
   return (
-    <div className="min-h-screen bg-slate-50 py-4 print:bg-white">
-      <div className="max-w-6xl mx-auto print:max-w-full">
-        {/* Action Buttons */}
-        <div className="mb-4 px-4 flex gap-2 print:hidden">
-          <button
-            onClick={handleDownloadPDF}
-            className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded transition-all"
-            title="Download as PDF"
-          >
-            <Download size={18} />
-            Download PDF
-          </button>
-          <button
-            onClick={handlePrint}
-            className="inline-flex items-center gap-2 bg-slate-600 hover:bg-slate-700 text-white font-bold py-2 px-4 rounded transition-all"
-            title="Print report"
-          >
-            <Printer size={18} />
-            Print
-          </button>
-        </div>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+      {/* Control Panel */}
+      <div className="sticky top-0 z-10 bg-white border-b border-slate-200 shadow-sm">
 
-        {/* Main Content */}
-        <div ref={billContentRef} className="bg-white shadow-lg print:shadow-none">
-          {/* Header */}
-          <div className="px-6 py-6 border-b-2 border-slate-300 print:border-b print:border-gray-400">
-            <div className="flex flex-nowrap items-start justify-between gap-4">
-              <div>
-                <h1 className="text-3xl font-bold tracking-tight text-slate-700">
-                  {labInfo.laboratory_name}
-                </h1>
-                <p className="text-gray-600 mt-1">
-                  {labInfo.laboratory_address}, {labInfo.lab_city}, {labInfo.lab_state}
-                </p>
-              </div>
-              <div className="text-right text-sm text-gray-700 space-y-1">
-                <p><span className="font-semibold">Phone:</span> {labInfo.laboratory_phone}</p>
-                <p><span className="font-semibold">Email:</span> {labInfo.laboratory_email}</p>
-              </div>
+        <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between gap-4">
+            <Link
+              href="/lab"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-lg transition-colors border border-slate-300 shadow-sm print:hidden"
+              title="Back to Lab Dashboard"
+            >
+              <svg 
+                xmlns="http://www.w3.org/2000/svg" 
+                width="18" 
+                height="18" 
+                viewBox="0 0 24 24" 
+                fill="none" 
+                stroke="currentColor" 
+                strokeWidth="2" 
+                strokeLinecap="round" 
+                strokeLinejoin="round"
+              >
+                <path d="M19 12H5M12 19l-7-7 7-7"/>
+              </svg>
+              <span className="hidden sm:inline"></span>
+            </Link>            
+            <div>
+              <h1 className="text-xl sm:text-2xl font-bold text-slate-900">
+                Sample Collection & Billing Details
+              </h1>
+              <p className="text-sm text-slate-500 mt-0.5">
+                Medical Number: <span className="font-mono font-semibold text-slate-700">{resolvedParams?.medical_num}</span>
+              </p>
+            </div>
+            <div className="flex items-center gap-2 print:hidden">
+              <button
+                onClick={handleDownloadPDF}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors shadow-md"
+                title="Download as PDF"
+              >
+                <Download size={18} />
+                <span className="hidden sm:inline">Download</span>
+              </button>
+              <button
+                onClick={handlePrint}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-slate-600 text-white font-semibold rounded-lg hover:bg-slate-700 transition-colors shadow-md"
+                title="Print this page"
+              >
+                <Printer size={18} />
+                <span className="hidden sm:inline">Print</span>
+              </button>
             </div>
           </div>
+        </div>
+      </div>
 
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
+        <div ref={billContentRef} className="bg-white shadow-lg rounded-xl overflow-hidden print:shadow-none print:rounded-none">
           {/* Sample Details Report Header */}
           <div className="px-6 py-6 border-b-2 border-slate-300 print:border-b print:border-gray-400 flex flex-nowrap justify-between items-center gap-4">
             <div>
@@ -475,26 +459,26 @@ export default function SampleDetailsPage({ params }: BillingPageProps) {
                         <td className="p-3 text-center print:hidden space-y-2">
                           <button
                             onClick={() => handleSamplesCollected(index)}
-                            disabled={isUpdating === index || test.sampleCollectedId == 2}
+                            disabled={isUpdating === index || (test.sampleCollectedId ?? null) !== null && test.sampleCollectedId >= 1}
                             className={`w-full inline-flex items-center justify-center gap-1 font-bold py-1.5 px-2.5 rounded text-[10px] transition-all ${
-                              test.sampleCollectedId ?? 0 >= 1
+                              (test.sampleCollectedId ?? null) !== null && test.sampleCollectedId >= 1
                                 ? (test.sampleCollectedId == 1 ? 'bg-gray-900 text-white cursor-not-allowed opacity-75': 'bg-green-700 text-white cursor-not-allowed opacity-75')
                                 : isUpdating === index
                                 ? 'bg-gray-500 text-white cursor-wait'
                                 : 'bg-red-600 hover:bg-red-700 text-white'
                             }`}
-                            title={test.sampleCollectedId ?? 0 >= 1 ? "Sample already approved" : "Mark sample as collected"}
+                            title={(test.sampleCollectedId ?? null) !== null && test.sampleCollectedId >= 1 ? "Sample already approved" : "Mark sample as collected"}
                           >
                             {isUpdating === index
                               ? "Updating..."
-                              : test.sampleCollectedId ?? 0 >= 1
+                              : (test.sampleCollectedId ?? null) !== null && test.sampleCollectedId >= 1
                               ? (test.sampleCollectedId == 1 ? "Sample Approved": "Sample Collected")
                               : "Approve Sample"}
                           </button>
                           {(test.sampleCollectedId == 1) && (
                             
                             <Link
-                              href={`/lab/AddReport/${resolvedParams?.medical_num}/${resolvedParams?.patient_id}/${test.investigationId}/${test.labapprovalId}/${test.billingId}/${test.sampleCollectedId}`}
+                              href={`/lab/AddReport/${resolvedParams?.medical_num}/${resolvedParams?.patient_id}`}
                               className="w-full inline-flex items-center justify-center gap-1 bg-green-600 hover:bg-green-700 text-white font-bold py-1.5 px-2.5 rounded text-[10px] transition-all"
                               title="Add test results"
                             >

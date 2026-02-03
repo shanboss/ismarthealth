@@ -356,81 +356,6 @@ export default function ReportUploadPage({ params }: ReportUploadPageProps) {
     }
   };
 
-  const handleSaveAllSamples = async (samples: ApprovedSample[]) => {
-    try {
-      setSavingSamples(true);
-      console.log('Saving all samples for group:', samples);
-      
-      // First, validate that all samples have values
-      const missingValues: string[] = [];
-      for (let i = 0; i < samples.length; i++) {
-        const sample = samples[i];
-        const key = `${sample.testDetails.id}-${i}`;
-        const value = sampleValues.get(key)?.value || '';
-        
-        if (!value || value.trim() === '') {
-          missingValues.push(sample.childTestName || sample.parentTestName);
-        }
-      }
-      
-      // If there are missing values, show error and don't proceed
-      if (missingValues.length > 0) {
-        setSavingSamples(false);
-        setError(`Please fill in all sample values. Missing: ${missingValues.join(', ')}`);
-        return;
-      }
-      
-      // All values are present, proceed with saving
-      for (let i = 0; i < samples.length; i++) {
-        const sample = samples[i];
-        const key = `${sample.testDetails.id}-${i}`;
-        const value = sampleValues.get(key)?.value || '';
-
-        const PostData = {
-          testDetailsId: sample.testDetails.id,
-          value: value,
-          investigationId: sample.investigationId,
-          unit: sample.unit || '',
-          referenceRange: sample.referenceRange || '',
-          medicalNum: passedData.medical_num,
-          patientId: passedData.patient_id,
-        };
-
-        console.log('Saving sample:', PostData);
-        
-        const response = await fetch('/api/lab/samples/sampleReport', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(PostData),
-        });
-
-        const data = await response.json();
-        if (!response.ok) {
-          throw new Error(`Failed to save sample ${sample.testDetails.id}: ${data.message || 'Unknown error'}`);
-        }
-        console.log('Sample saved successfully:', data);
-      }
-
-      // Clear sample values after all have been saved
-      const newSampleValues = new Map(sampleValues);
-      samples.forEach((sample, idx) => {
-        const key = `${sample.testDetails.id}-${idx}`;
-        newSampleValues.delete(key);
-      });
-      setSampleValues(newSampleValues);
-
-      alert('All sample values saved successfully!');
-      router.refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save all sample values');
-      console.error('Error saving all samples:', err);
-    } finally {
-      setSavingSamples(false);
-    }
-  };
-
   const handleUpload = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
@@ -488,7 +413,7 @@ export default function ReportUploadPage({ params }: ReportUploadPageProps) {
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-4">
             <Link
-              href={`/lab/samples/${passedData.patient_id}/${passedData.medical_num}`}
+              href={`/lab/bill/${passedData.patient_id}/${passedData.medical_num}`}
               className="p-2 hover:bg-gray-200 rounded-lg transition-colors"
               title="Go back"
             >
@@ -645,29 +570,6 @@ export default function ReportUploadPage({ params }: ReportUploadPageProps) {
                               </td>
                             </tr>
                           ))}
-                          {/* Save All Button Row */}
-                          <tr className="bg-blue-50 border-t-2 border-blue-200">
-                            <td colSpan={4} className="py-2 px-3"></td>
-                            <td className="py-2 px-2">
-                              <button
-                                onClick={() => handleSaveAllSamples(samples)}
-                                disabled={savingSamples || samples.length === 0}
-                                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-semibold rounded text-xs transition-colors flex items-center gap-2 whitespace-nowrap"
-                              >
-                                {savingSamples ? (
-                                  <>
-                                    <div className="animate-spin rounded-full h-3 w-3 border-2 border-white border-t-transparent"></div>
-                                    Saving All...
-                                  </>
-                                ) : (
-                                  <>
-                                    <Save size={14} />
-                                    Save All
-                                  </>
-                                )}
-                              </button>
-                            </td>
-                          </tr>
                         </tbody>
                       </table>
                     </div>

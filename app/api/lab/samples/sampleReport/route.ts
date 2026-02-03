@@ -121,13 +121,14 @@ export async function POST(request: NextRequest) {
         );
         const maxResultId = maxResultRows[0][0]?.max_id || 0;
         const newResultId = maxResultId + 1;
+        const currentDate = new Date();
 
         await connection.query(
-          "INSERT INTO sample_results (result_id, sample_value, referral_test_id) VALUES (?, ?, ?)",
-          [newResultId, value, testDetailsId]
+          "INSERT INTO sample_results (result_id, sample_value, referral_test_id, created_on) VALUES (?, ?, ?, ?)",
+          [newResultId, value, testDetailsId, currentDate]
         );
 
-        console.log(`Inserted sample result: result_id=${newResultId}, sample_value=${value}, referral_test_id=${testDetailsId}`);
+        console.log(`Inserted sample result: result_id=${newResultId}, sample_value=${value}, referral_test_id=${testDetailsId}, created_on=${currentDate.toISOString()}`);
       }
 
       // Step 2: Update referral_patient_test_details
@@ -146,6 +147,8 @@ export async function POST(request: NextRequest) {
          WHERE sample_collected_id < 2 AND medical_num = ? AND patient_unique_id = ?`,
         [medicalNum, patientId]
       );
+
+      
 
       const pendingCount = pendingSamplesRows[0][0]?.count || 0;
 
@@ -234,18 +237,20 @@ export async function fetchApprovedSamples(
     const approvedSamples = await query<RowDataPacket[]>(
       `SELECT DISTINCT 
         itd.investigation_id, 
-        itd.test_name as parent_test_name, 
-        itd2.test_name as child_test_name, 
+        itd.test_name as child_test_name, 
+        itd2.test_name as parent_test_name, 
         ltd.unit, 
         ltd.reference_range, 
         rptd.* 
       FROM referral_patient_test_details as rptd 
       INNER JOIN investigation_test_details as itd ON itd.parse_id = rptd.laboratory_tests
       INNER JOIN laboratory_test_details as ltd ON ltd.laboratory_tests = rptd.laboratory_tests AND ltd.laboratory_id = rptd.laboratory_id
-      LEFT JOIN investigation_test_details as itd2 on itd.parse_id = itd2.parent_parse_id
+      LEFT JOIN investigation_test_details as itd2 on itd.parent_parse_id = itd2.parse_id
       WHERE (rptd.medical_num = ? OR rptd.medical_num = ?) 
         AND rptd.patient_unique_id = ? 
-        AND rptd.sample_collected_id = 1`,
+        AND rptd.sample_collected_id = 1
+        AND rptd.has_child=0`,
+      
       [medicalNumClean, medicalNumSpecial, patientId]
     );
 

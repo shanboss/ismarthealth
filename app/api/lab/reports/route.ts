@@ -2,6 +2,24 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool from "@/app/lib/mysql";
 
+export async function GETDoctorDetails(req: NextRequest) {
+  const { searchParams } = new URL(req.url);
+  const patient_id = searchParams.get('patient_id');
+  const medical_num = searchParams.get('medical_num');
+
+  if (!patient_id || !medical_num) {
+    return NextResponse.json(
+      { success: false, message: 'Missing parameters' },
+      { status: 400 }
+    );
+  } else {
+    return NextResponse.json(
+      { success: true, message: 'Parameters received' },
+      { status: 200 }
+    );
+  }
+}
+
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const patient_id = searchParams.get("patient_id");
@@ -17,7 +35,7 @@ export async function GET(req: NextRequest) {
   const conn = await pool.getConnection();
 
   try {
-    // ── HEADER ───────────────────────────────────────────────────────────────
+    // ─── HEADER ────────────────────────────────────────────────────────────────
     const [headerRows]: any = await conn.query(
       `
       SELECT * FROM (
@@ -77,11 +95,12 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ success: false, message: "Unauthorized or report not found" });
     }
 
-    // ── TESTS ────────────────────────────────────────────────────────────────
+    // ─── TESTS ────────────────────────────────────────────────────────────────
     const [tests]: any = await conn.query(
   `
   (
     SELECT DISTINCT
+      rptd.ID as testid,
       idet.test_name as parent_test_name,
       itd.test_name,
       DATE(CONCAT(rptd.date, ' ', rptd.time)) AS test_date,
@@ -118,6 +137,7 @@ export async function GET(req: NextRequest) {
 
   (
     SELECT DISTINCT
+      rptd.ID as testid,
       idet.test_name as parent_test_name,
       itd.test_name,
       DATE(CONCAT(rptd.date, ' ', rptd.time)) AS test_date,
@@ -172,6 +192,7 @@ export async function GET(req: NextRequest) {
         },
         tests: tests.map((t: any, i: number) => ({
           slNo: i + 1,
+          testId: t.testid,
           investigationName: t.parent_test_name,
           testName: t.test_name,
           date: t.test_date,
@@ -189,6 +210,108 @@ export async function GET(req: NextRequest) {
     console.error("Report API Error:", error);
     return NextResponse.json(
       { success: false, message: "Internal server error" },
+      { status: 500 }
+    );
+  } finally {
+    conn.release();
+  }
+}
+
+// ─── POST: Approve Lab Report ────────────────────────────────────────────────
+export async function POST(req: NextRequest) {
+  const { medical_num, patient_id, test_id } = await req.json();
+
+  // Validate required parameters
+  if (!medical_num || !patient_id || !test_id) {
+    return NextResponse.json(
+      { success: false, message: "Missing required parameters: medical_num, patient_id, test_id" },
+      { status: 400 }
+    );
+  }
+
+  const conn = await pool.getConnection();
+
+  try {
+    // Begin transaction
+    await conn.beginTransaction();
+
+    // Step 1: Update referral_patient_test_details - approve the test
+    const updateTestResult = await conn.query(
+      `UPDATE referral_patient_test_details 
+       SET labapproval_id = 1, sample_collected_id = 3, pat_status = 1
+       WHERE medical_num = ? AND patient_unique_id = ? AND ID = ?`,
+      [medical_num, patient_id, test_id]
+    );
+
+    if (updateTestResult.affectedRows === 0) {
+      await conn.rollback();
+      return NextResponse.json(
+        { success: false, message: "Test record not found or already processed" },
+        { status: 404 }
+      );
+    }
+
+    // Step 2: Check approval status across all tests for this medical_num
+    const [approvalStatus]: any = await conn.query(
+      `SELECT 
+        SUM(CASE WHEN labapproval_id = 0 THEN 1 ELSE 0 END) AS count_pending,
+        SUM(CASE WHEN labapproval_id = 1 THEN 1 ELSE 0 END) AS count_approved, 
+        COUNT(*) AS total_rows
+       FROM referral_patient_test_details 
+       WHERE medical_num = ? AND patient_unique_id = ?`,
+      [medical_num, patient_id]
+    );
+
+    const status = approvalStatus[0];
+
+    // Step 3: If all tests are approved, update related tables
+    if (status.count_approved === status.total_rows) {
+      // Update patientqueue table
+      await conn.query(
+        `UPDATE patientqueue 
+         SET lab_test_status = 4 
+         WHERE medical_num = ? AND patient_unique_id = ?`,
+        [medical_num, patient_id]
+      );
+
+      // Update referral_confirmation_details table
+      await conn.query(
+        `UPDATE referral_confirmation_details 
+         SET lab_test_status = 5, billing_status = 2 
+         WHERE medical_num = ? AND patient_unique_id = ?`,
+        [medical_num, patient_id]
+      );
+    }
+
+    // Commit transaction
+    await conn.commit();
+
+    return NextResponse.json(
+      {
+        success: true,
+        message: "Test approved successfully",
+        data: {
+          testApproved: true,
+          allTestsApproved: status.count_approved === status.total_rows,
+          approvalSummary: {
+            pendingTests: status.count_pending || 0,
+            approvedTests: status.count_approved || 0,
+            totalTests: status.total_rows || 0,
+          },
+        },
+      },
+      { status: 200 }
+    );
+  } catch (error) {
+    try {
+      await conn.rollback();
+    } catch (rollbackError) {
+      console.error("Rollback error:", rollbackError);
+    }
+    
+    console.error("Report Approval API Error:", error);
+    return NextResponse.json(
+      { success: false, message: "Internal server error during approval process" },
       { status: 500 }
     );
   } finally {
