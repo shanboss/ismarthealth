@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
 
     if (searchQuery.trim()) {
       const searchWildcard = `%${searchQuery}%`;
-      whereSql += ` AND (p.lab_test_status !=5 OR p.bill_status !=2)`;
+      whereSql += ` AND (p.lab_test_status !=5 OR p.billing_status !=2)`;
       whereSql += ` AND (
         p.BillId LIKE ? OR 
         p.firstname LIKE ? OR 

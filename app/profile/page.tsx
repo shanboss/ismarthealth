@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
+import { useState } from "react";
 import {
   UserIcon,
   PhoneIcon,
@@ -8,7 +8,7 @@ import {
   MapPinIcon,
   CameraIcon,
   CheckIcon,
-} from '@heroicons/react/24/outline';
+} from "@heroicons/react/24/outline";
 
 export default function ProfilePage() {
   const [isEditing, setIsEditing] = useState(false);
@@ -17,12 +17,6 @@ export default function ProfilePage() {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 py-8 px-4 md:px-8">
       <div className="mx-auto w-full max-w-6xl">
         {/* Header */}
-        <div className="mb-10">
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent mb-2">
-            Welcome Madhavan
-          </h1>
-          <p className="text-lg text-slate-600">Manage your professional profile and clinic information</p>
-        </div>
 
         <div className="grid gap-8 lg:grid-cols-2">
           {/* Left Profile Summary Card */}
@@ -42,23 +36,35 @@ export default function ProfilePage() {
               </div>
 
               {/* Name and Title */}
-              <h2 className="text-center text-2xl font-bold text-foreground">Dr. Madhavan</h2>
-              <p className="mt-1 text-center text-lg font-medium text-blue-600">General Physician</p>
+              <h2 className="text-center text-2xl font-bold text-foreground">
+                Dr. Madhavan
+              </h2>
+              <p className="mt-1 text-center text-lg font-medium text-blue-600">
+                General Physician
+              </p>
 
               {/* Info Details */}
               <div className="mt-8 space-y-4">
                 {/* Registration Number */}
                 <div className="rounded-lg bg-gradient-to-r from-blue-50 to-indigo-50 p-4 border border-blue-100">
-                  <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Registration Number</p>
-                  <p className="mt-1 text-lg font-bold text-foreground">234687985</p>
+                  <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">
+                    Registration Number
+                  </p>
+                  <p className="mt-1 text-lg font-bold text-foreground">
+                    234687985
+                  </p>
                 </div>
 
                 {/* Phone */}
                 <div className="flex items-start gap-3 rounded-lg p-3 hover:bg-slate-50 transition">
                   <PhoneIcon className="h-5 w-5 text-blue-600 mt-1" />
                   <div>
-                    <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Phone Number</p>
-                    <p className="text-sm font-medium text-foreground">9902030560</p>
+                    <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">
+                      Phone Number
+                    </p>
+                    <p className="text-sm font-medium text-foreground">
+                      9902030560
+                    </p>
                   </div>
                 </div>
 
@@ -66,8 +72,12 @@ export default function ProfilePage() {
                 <div className="flex items-start gap-3 rounded-lg p-3 hover:bg-slate-50 transition">
                   <EnvelopeIcon className="h-5 w-5 text-blue-600 mt-1" />
                   <div>
-                    <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Email</p>
-                    <p className="text-sm font-medium text-foreground">physician@inetframe.com</p>
+                    <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">
+                      Email
+                    </p>
+                    <p className="text-sm font-medium text-foreground">
+                      physician@inetframe.com
+                    </p>
                   </div>
                 </div>
 
@@ -75,8 +85,12 @@ export default function ProfilePage() {
                 <div className="flex items-start gap-3 rounded-lg p-3 hover:bg-slate-50 transition">
                   <UserIcon className="h-5 w-5 text-blue-600 mt-1" />
                   <div>
-                    <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Specialization</p>
-                    <p className="text-sm font-medium text-foreground">General Physician</p>
+                    <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">
+                      Specialization
+                    </p>
+                    <p className="text-sm font-medium text-foreground">
+                      General Physician
+                    </p>
                   </div>
                 </div>
 
@@ -84,7 +98,9 @@ export default function ProfilePage() {
                 <div className="flex items-start gap-3 rounded-lg p-3 hover:bg-slate-50 transition">
                   <CheckIcon className="h-5 w-5 text-blue-600 mt-1" />
                   <div>
-                    <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Degree</p>
+                    <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">
+                      Degree
+                    </p>
                     <p className="text-sm font-medium text-slate-400">—</p>
                   </div>
                 </div>
@@ -107,17 +123,26 @@ export default function ProfilePage() {
           <div className="rounded-2xl border border-blue-200 bg-white shadow-lg overflow-hidden">
             {/* Header */}
             <div className="border-b border-blue-100 bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-4">
-              <h2 className="text-xl font-bold text-foreground">Update Profile</h2>
-              <p className="mt-1 text-sm text-slate-600">Edit your professional information and clinic details</p>
+              <h2 className="text-xl font-bold text-foreground">
+                Update Profile
+              </h2>
+              <p className="mt-1 text-sm text-slate-600">
+                Edit your professional information and clinic details
+              </p>
             </div>
 
             <form className="space-y-6 p-6">
               {/* Contact Section */}
               <div>
-                <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-700">Contact Information</h3>
+                <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-700">
+                  Contact Information
+                </h3>
                 <div className="grid gap-4">
                   <div>
-                    <label className="mb-2 block text-sm font-medium text-foreground" htmlFor="altPhone">
+                    <label
+                      className="mb-2 block text-sm font-medium text-foreground"
+                      htmlFor="altPhone"
+                    >
                       Alternate Phone Number
                     </label>
                     <input
@@ -132,10 +157,15 @@ export default function ProfilePage() {
 
               {/* Clinic Section */}
               <div>
-                <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-700">Clinic Information</h3>
+                <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-700">
+                  Clinic Information
+                </h3>
                 <div className="space-y-4">
                   <div>
-                    <label className="mb-2 block text-sm font-medium text-foreground" htmlFor="clinicName">
+                    <label
+                      className="mb-2 block text-sm font-medium text-foreground"
+                      htmlFor="clinicName"
+                    >
                       Clinic Name
                     </label>
                     <input
@@ -148,7 +178,10 @@ export default function ProfilePage() {
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="mb-2 block text-sm font-medium text-foreground" htmlFor="clinicPhone">
+                      <label
+                        className="mb-2 block text-sm font-medium text-foreground"
+                        htmlFor="clinicPhone"
+                      >
                         Phone Number
                       </label>
                       <input
@@ -159,7 +192,10 @@ export default function ProfilePage() {
                       />
                     </div>
                     <div>
-                      <label className="mb-2 block text-sm font-medium text-foreground" htmlFor="clinicAltPhone">
+                      <label
+                        className="mb-2 block text-sm font-medium text-foreground"
+                        htmlFor="clinicAltPhone"
+                      >
                         Alternate Phone
                       </label>
                       <input
@@ -172,7 +208,10 @@ export default function ProfilePage() {
                   </div>
 
                   <div>
-                    <label className="mb-2 block text-sm font-medium text-foreground" htmlFor="clinicAddress">
+                    <label
+                      className="mb-2 block text-sm font-medium text-foreground"
+                      htmlFor="clinicAddress"
+                    >
                       Clinic Address
                     </label>
                     <textarea
@@ -187,10 +226,15 @@ export default function ProfilePage() {
 
               {/* Location Section */}
               <div>
-                <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-700">Location Details</h3>
+                <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-700">
+                  Location Details
+                </h3>
                 <div className="grid grid-cols-3 gap-4">
                   <div>
-                    <label className="mb-2 block text-sm font-medium text-foreground" htmlFor="state">
+                    <label
+                      className="mb-2 block text-sm font-medium text-foreground"
+                      htmlFor="state"
+                    >
                       State
                     </label>
                     <select
@@ -204,7 +248,10 @@ export default function ProfilePage() {
                     </select>
                   </div>
                   <div>
-                    <label className="mb-2 block text-sm font-medium text-foreground" htmlFor="city">
+                    <label
+                      className="mb-2 block text-sm font-medium text-foreground"
+                      htmlFor="city"
+                    >
                       City
                     </label>
                     <select
@@ -218,7 +265,10 @@ export default function ProfilePage() {
                     </select>
                   </div>
                   <div>
-                    <label className="mb-2 block text-sm font-medium text-foreground" htmlFor="locality">
+                    <label
+                      className="mb-2 block text-sm font-medium text-foreground"
+                      htmlFor="locality"
+                    >
                       Locality
                     </label>
                     <input
@@ -233,10 +283,15 @@ export default function ProfilePage() {
 
               {/* Additional Info Section */}
               <div>
-                <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-700">Additional Information</h3>
+                <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-700">
+                  Additional Information
+                </h3>
                 <div className="grid grid-cols-3 gap-4">
                   <div>
-                    <label className="mb-2 block text-sm font-medium text-foreground" htmlFor="pincode">
+                    <label
+                      className="mb-2 block text-sm font-medium text-foreground"
+                      htmlFor="pincode"
+                    >
                       Pincode
                     </label>
                     <input
@@ -247,20 +302,34 @@ export default function ProfilePage() {
                     />
                   </div>
                   <div>
-                    <label className="mb-2 block text-sm font-medium text-foreground">Clinic Manager</label>
+                    <label className="mb-2 block text-sm font-medium text-foreground">
+                      Clinic Manager
+                    </label>
                     <div className="flex items-center gap-6 rounded-lg border border-slate-300 bg-white px-4 py-2.5">
                       <label className="inline-flex items-center gap-2 text-sm cursor-pointer">
-                        <input type="radio" name="clinicManager" defaultChecked className="cursor-pointer" />
+                        <input
+                          type="radio"
+                          name="clinicManager"
+                          defaultChecked
+                          className="cursor-pointer"
+                        />
                         <span className="text-foreground">Yes</span>
                       </label>
                       <label className="inline-flex items-center gap-2 text-sm cursor-pointer">
-                        <input type="radio" name="clinicManager" className="cursor-pointer" />
+                        <input
+                          type="radio"
+                          name="clinicManager"
+                          className="cursor-pointer"
+                        />
                         <span className="text-foreground">No</span>
                       </label>
                     </div>
                   </div>
                   <div>
-                    <label className="mb-2 block text-sm font-medium text-foreground" htmlFor="photo">
+                    <label
+                      className="mb-2 block text-sm font-medium text-foreground"
+                      htmlFor="photo"
+                    >
                       Update Photo
                     </label>
                     <input

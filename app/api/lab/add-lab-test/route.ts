@@ -1,8 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { query } from "@/app/lib/mysql";
+import pool, { query } from "@/app/lib/mysql";
 import { verifyAuthFromRequest, ROLES, hasRole } from "@/app/lib/auth";
 import { ResultSetHeader, RowDataPacket } from "mysql2";
 import crypto from "crypto";
+
+// Helper to sanitize params (avoid undefined)
+function sanitizeParams(
+  params: (string | number | boolean | null | undefined)[]
+): (string | number | boolean | null)[] {
+  return params.map((p) => (p === undefined ? null : p));
+}
 
 // Helper function to generate medical_num
 async function generateMedicalNum(
@@ -286,95 +293,156 @@ export async function POST(request: NextRequest) {
     // 7. Generate password for referral
     const referralPassword = Math.random().toString(36).slice(-4);
 
-    // 8. Create referral_confirmation_details entry
-    await query<ResultSetHeader>(
-      `INSERT INTO referral_confirmation_details (
-        referred_id, medical_num, relationship, referral_pat_id, password,
-        patient_unique_id, refer_date, created_by, login_id, created_on,
-        ref_type, lab_test_status, billing_status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        referredId,
-        medicalNum,
-        "1", // relationship: Self
-        referralPatientId,
-        referralPassword,
-        patientUniqueId,
-        referDate,
-        user.role_name || "Lab User",
-        user.login_id,
-        now,
-        "I", // ref_type: Individual tests
-        0, // lab_test_status: Queue
-        0, // billing_status: Not billed
-      ]
-    );
+    // 8. Calculate billing totals from tests
+    const totAmt = tests.reduce((sum, t) => sum + (parseFloat(t.price) || 0), 0);
+    const laboratoryTestsRef = tests.map((t) => t.id).join(","); // Reference all purchased items
 
-    // 9. Create patientqueue entry
-    const patientQueueResult = await query<ResultSetHeader>(
-      `INSERT INTO patientqueue (
-        BillId, medical_num, firstname, mailid, phonenum, refer_date,
-        patient_unique_id, physician_id, phyfname, referred_id, ID,
-        billing_id, laboratory_id, ref_type, lab_test_status, billing_status, is_sync
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        "", // BillId - empty initially, will be set when billing is done
-        medicalNum,
-        patient.firstName,
-        patient.email || "",
-        patient.phone,
-        referDate,
-        patientUniqueId,
-        doctor?.id || null,
-        doctor?.name || null,
-        referredId,
-        referralPatientId,
-        0, // billing_id - 0 initially
-        laboratoryId,
-        "I", // ref_type: Individual tests
-        0, // lab_test_status: Queue
-        0, // billing_status: Not billed
-        0, // is_sync
-      ]
-    );
+    // 9. Use transaction for billing + referral + queue + test details
+    const connection = await pool.getConnection();
+    let billingId: number;
+    let uniqueBillId: string;
 
-    // 10. Create referral_patient_test_details entries for each test
-    const testInserts = tests.map((test) =>
-      query<ResultSetHeader>(
-        `INSERT INTO referral_patient_test_details (
-          medical_num, laboratory_tests, parse_parent_id, has_child,
-          patient_unique_id, physician_id, laboratory_id, dependent_id,
-          main_patient_id, billing_id, billing_datetime, sample_collected_id,
-          sample_datetime, labapproval_id, labapproval_datetime, pat_status,
-          approved_lab_doc_id, editor, created_on
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
+    try {
+      await connection.beginTransaction();
+
+      // 9a. Generate unique_billid for the laboratory
+      const [lastBillRows] = await connection.execute<RowDataPacket[]>(
+        "SELECT unique_billid FROM billing WHERE lab_id = ? ORDER BY billing_id DESC LIMIT 1",
+        [laboratoryId]
+      );
+      const currentDate = new Date().toISOString().slice(0, 7).replace("-", ""); // YYYYMM
+      if (lastBillRows.length > 0) {
+        const oldUniqueBillId = lastBillRows[0].unique_billid as string;
+        const numericPart = parseInt(oldUniqueBillId.slice(-4)) || 0;
+        uniqueBillId = oldUniqueBillId.slice(0, -4) + String(numericPart + 1).padStart(4, "0");
+      } else {
+        uniqueBillId = currentDate + "0001";
+      }
+
+      // 9b. Create billing entry (references all purchased items)
+      const [billingResult] = await connection.execute<ResultSetHeader>(
+        `INSERT INTO billing (
+          laboratory_tests, medical_num, patient_unique_id, tot_amt, discount, discount_type,
+          net_amt, adv_amt, balance_amt, balance_pymnt2, final_balance, lab_id, unique_billid, created_on
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        sanitizeParams([
+          laboratoryTestsRef,
           medicalNum,
-          test.id.toString(), // laboratory_tests stores test ID
-          test.id, // parse_parent_id
-          0, // has_child
+          patientUniqueId,
+          totAmt,
+          0,
+          0, // discount_type: 0 = none
+          totAmt,
+          0,
+          totAmt,
+          0,
+          totAmt,
+          laboratoryId,
+          uniqueBillId,
+          now,
+        ])
+      );
+      billingId = billingResult.insertId;
+
+      // 9c. Create referral_confirmation_details entry
+      await connection.execute(
+        `INSERT INTO referral_confirmation_details (
+          referred_id, medical_num, relationship, referral_pat_id, password,
+          patient_unique_id, refer_date, created_by, login_id, created_on,
+          ref_type, lab_test_status, billing_status
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        sanitizeParams([
+          referredId,
+          medicalNum,
+          "1",
+          referralPatientId,
+          referralPassword,
+          patientUniqueId,
+          referDate,
+          user.role_name || "Lab User",
+          user.login_id,
+          now,
+          "I",
+          0,
+          0,
+        ])
+      );
+
+      // 9d. Create patientqueue entry with billing_id and BillId (unique_billid)
+      await connection.execute(
+        `INSERT INTO patientqueue (
+          BillId, medical_num, firstname, mailid, phonenum, refer_date,
+          patient_unique_id, physician_id, phyfname, referred_id, ID,
+          billing_id, laboratory_id, ref_type, lab_test_status, billing_status, is_sync
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        sanitizeParams([
+          uniqueBillId,
+          medicalNum,
+          patient.firstName,
+          patient.email || "",
+          patient.phone,
+          referDate,
           patientUniqueId,
           doctor?.id || null,
-          laboratoryId,
-          0, // dependent_id
+          doctor?.name || null,
+          referredId,
           referralPatientId,
-          0, // billing_id - 0 initially
-          now, // billing_datetime (NOT NULL; use order time until billed)
-          0, // sample_collected_id
-          now, // sample_datetime (NOT NULL; use order time until collected)
-          0, // labapproval_id
-          now, // labapproval_datetime (NOT NULL; use order time until approved)
-          0, // pat_status: NA
-          0, // approved_lab_doc_id
-          "", // editor
-          now,
-        ]
-      )
-    );
+          billingId,
+          laboratoryId,
+          "I",
+          0,
+          0,
+          0,
+        ])
+      );
 
-    await Promise.all(testInserts);
+      // 9e. Create referral_patient_test_details entries for each test (with billing_id)
+      const datePart = referDate;
+      const timePart = now.split(" ")[1] || "00:00:00";
+      for (const test of tests) {
+        await connection.execute(
+          `INSERT INTO referral_patient_test_details (
+            medical_num, laboratory_tests, parse_parent_id, has_child, time, date, instruction,
+            patient_unique_id, physician_id, laboratory_id, dependent_id, main_patient_id,
+            billing_id, billing_datetime, sample_collected_id, sample_datetime, labapproval_id,
+            labapproval_datetime, pat_status, approved_lab_doc_id, editor, created_on
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          sanitizeParams([
+            medicalNum,
+            test.id.toString(),
+            0, // parse_parent_id: 0 for top-level tests (billing query filters by this)
+            0, // has_child
+            timePart,
+            datePart,
+            null,
+            patientUniqueId,
+            doctor?.id || null,
+            laboratoryId,
+            0,
+            referralPatientId,
+            billingId,
+            now,
+            0,
+            now,
+            0,
+            now,
+            0,
+            0,
+            "",
+            now,
+          ])
+        );
+      }
 
-    // 11. Return success response
+      await connection.commit();
+    } catch (txError) {
+      await connection.rollback();
+      throw txError;
+    } finally {
+      connection.release();
+    }
+
+    // 10. Return success response
     return NextResponse.json(
       {
         success: true,
@@ -384,6 +452,8 @@ export async function POST(request: NextRequest) {
           patientUniqueId,
           referralPatientId,
           referredId,
+          billingId,
+          uniqueBillId,
           testsCount: tests.length,
         },
       },

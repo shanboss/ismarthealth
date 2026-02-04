@@ -1,9 +1,29 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { PencilIcon, TrashIcon, MagnifyingGlassIcon, ChevronLeftIcon, ChevronRightIcon, UserGroupIcon } from "@heroicons/react/24/outline";
+import { useState, useMemo, useEffect } from "react";
+import { PencilIcon, TrashIcon, MagnifyingGlassIcon, ChevronLeftIcon, ChevronRightIcon, UserGroupIcon, XMarkIcon } from "@heroicons/react/24/outline";
 
-import { Doctor, sampleDoctors, SortField, SortOrder } from "../../config/lab/LabDoctors";
+import { Doctor, SortField, SortOrder } from "../../config/lab/LabDoctors";
+
+type LabDoctorFromApi = {
+  laboratory_doctors_id: number;
+  doc_firstname: string;
+  doc_lastname: string;
+  doc_phone_number: string;
+  doc_email: string;
+  doc_designation: string;
+  doc_dept?: number;
+};
+
+function apiDoctorsToDoctor(d: LabDoctorFromApi): Doctor {
+  return {
+    id: String(d.laboratory_doctors_id),
+    name: `${d.doc_firstname} ${d.doc_lastname}`.trim(),
+    department: d.doc_designation || "",
+    phoneNo: d.doc_phone_number || "",
+    email: d.doc_email || "",
+  };
+}
 
 const SortIcon = ({ field, sortField, sortOrder }: { 
   field: SortField; 
@@ -35,12 +55,46 @@ const SortIcon = ({ field, sortField, sortOrder }: {
 };
 
 export default function LabDoctors() {
-  const [doctors, setDoctors] = useState<Doctor[]>(sampleDoctors);
+  const [doctors, setDoctors] = useState<Doctor[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [entriesPerPage, setEntriesPerPage] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
   const [sortField, setSortField] = useState<SortField | null>(null);
   const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [addSubmitting, setAddSubmitting] = useState(false);
+  const [addError, setAddError] = useState("");
+  const [addForm, setAddForm] = useState({
+    firstName: "",
+    lastName: "",
+    phone: "",
+    email: "",
+    designation: "",
+  });
+
+  useEffect(() => {
+    async function fetchDoctors() {
+      setLoading(true);
+      setError("");
+      try {
+        const response = await fetch("/api/lab/doctors");
+        const data = await response.json();
+        if (response.ok && data.success) {
+          setDoctors((data.data || []).map(apiDoctorsToDoctor));
+        } else {
+          setError(data.error || "Failed to fetch doctors");
+        }
+      } catch (err) {
+        setError("An error occurred while fetching doctors");
+        console.error("Error fetching doctors:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchDoctors();
+  }, []);
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -133,12 +187,165 @@ export default function LabDoctors() {
   };
 
   const handleAddDoctor = () => {
-    console.log("Add new doctor");
-    alert("Add Doctor functionality - to be implemented");
+    setAddForm({ firstName: "", lastName: "", phone: "", email: "", designation: "" });
+    setAddError("");
+    setShowAddModal(true);
   };
+
+  const handleSubmitAdd = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAddSubmitting(true);
+    setAddError("");
+    try {
+      const response = await fetch("/api/lab/doctors", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          firstName: addForm.firstName.trim(),
+          lastName: addForm.lastName.trim(),
+          phone: addForm.phone.trim(),
+          email: addForm.email.trim(),
+          designation: addForm.designation.trim(),
+        }),
+      });
+      const data = await response.json();
+      if (response.ok && data.success) {
+        setShowAddModal(false);
+        const refetch = await fetch("/api/lab/doctors");
+        const refetchData = await refetch.json();
+        if (refetch.ok && refetchData.success) {
+          setDoctors((refetchData.data || []).map(apiDoctorsToDoctor));
+        }
+      } else {
+        setAddError(data.error || "Failed to add doctor");
+      }
+    } catch (err) {
+      setAddError("An error occurred while adding doctor");
+      console.error(err);
+    } finally {
+      setAddSubmitting(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="space-y-6 p-1">
+        <div className="flex items-center justify-center py-24">
+          <p className="text-gray-600">Loading doctors...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 p-1">
+      {/* Add Doctor Modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-2xl border border-gray-200 bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+              <h2 className="text-lg font-semibold text-gray-900">Add Doctor</h2>
+              <button
+                type="button"
+                onClick={() => setShowAddModal(false)}
+                className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+                aria-label="Close"
+              >
+                <XMarkIcon className="h-5 w-5" />
+              </button>
+            </div>
+            <form onSubmit={handleSubmitAdd} className="p-6 space-y-4">
+              {addError && (
+                <div className="rounded-md bg-red-100 px-3 py-2 text-sm text-red-800">
+                  {addError}
+                </div>
+              )}
+              <div>
+                <label htmlFor="add-firstName" className="block text-sm font-medium text-gray-700 mb-1">
+                  First Name *
+                </label>
+                <input
+                  id="add-firstName"
+                  type="text"
+                  required
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+                  value={addForm.firstName}
+                  onChange={(e) => setAddForm((f) => ({ ...f, firstName: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label htmlFor="add-lastName" className="block text-sm font-medium text-gray-700 mb-1">
+                  Last Name *
+                </label>
+                <input
+                  id="add-lastName"
+                  type="text"
+                  required
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+                  value={addForm.lastName}
+                  onChange={(e) => setAddForm((f) => ({ ...f, lastName: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label htmlFor="add-phone" className="block text-sm font-medium text-gray-700 mb-1">
+                  Phone *
+                </label>
+                <input
+                  id="add-phone"
+                  type="tel"
+                  required
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+                  value={addForm.phone}
+                  onChange={(e) => setAddForm((f) => ({ ...f, phone: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label htmlFor="add-email" className="block text-sm font-medium text-gray-700 mb-1">
+                  Email *
+                </label>
+                <input
+                  id="add-email"
+                  type="email"
+                  required
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+                  value={addForm.email}
+                  onChange={(e) => setAddForm((f) => ({ ...f, email: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label htmlFor="add-designation" className="block text-sm font-medium text-gray-700 mb-1">
+                  Designation / Department
+                </label>
+                <input
+                  id="add-designation"
+                  type="text"
+                  placeholder="e.g. Radiologist, Pathologist"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+                  value={addForm.designation}
+                  onChange={(e) => setAddForm((f) => ({ ...f, designation: e.target.value }))}
+                />
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowAddModal(false)}
+                  className="flex-1 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={addSubmitting}
+                  className="flex-1 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-600 px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
+                >
+                  {addSubmitting ? "Adding..." : "Add Doctor"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Enhanced Header */}
       <div className="bg-gradient-to-r from-blue-50/80 to-indigo-50/80 backdrop-blur-xl rounded-2xl border border-blue-100/50 shadow-md p-6">
         <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
@@ -168,6 +375,12 @@ export default function LabDoctors() {
             + Add Doctor
           </button>
         </div>
+
+        {error && (
+          <div className="rounded-md bg-red-100 px-4 py-3 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-300">
+            {error}
+          </div>
+        )}
 
         {/* Enhanced Search */}
         <div className="relative">

@@ -1,5 +1,6 @@
 "use client";
 
+import { use } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeftIcon } from "@heroicons/react/24/outline";
 
@@ -110,10 +111,10 @@ const mockSuperSpecialtyBillData: Record<string, any> = {
 export default function SuperSpecialtyBillPage({
   params,
 }: {
-  params: { referralId: string };
+  params: Promise<{ referralId: string }>;
 }) {
   const router = useRouter();
-  const referralId = params.referralId;
+  const { referralId } = use(params);
   const billData = mockSuperSpecialtyBillData[referralId];
 
   if (!billData) {

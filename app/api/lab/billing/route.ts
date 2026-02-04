@@ -96,7 +96,7 @@ export async function GET(request: NextRequest) {
           b.adv_amt,
           b.balance_amt,
           b.billing_id AS bill_id,
-          ltd.test_price,
+          COALESCE(ltd.test_price, 0) AS test_price,
           rptd.billing_id,
           rptd.sample_collected_id,
           rptd.labapproval_id,
@@ -122,10 +122,10 @@ export async function GET(request: NextRequest) {
         INNER JOIN investigation_test_details itd ON itd.parse_id = rptd.laboratory_tests
         INNER JOIN laboratory_details ld ON ld.laboratory_id = rptd.laboratory_id
         LEFT JOIN physician_appointment pa ON pa.physician_id = rptd.physician_id
-        INNER JOIN status_master sm ON sm.status_id = rptd.pat_status
+        LEFT JOIN status_master sm ON sm.status_id = rptd.pat_status
         INNER JOIN referral_confirmation_details rcd ON rcd.patient_unique_id = rptd.patient_unique_id 
           AND rcd.medical_num = rptd.medical_num
-        INNER JOIN laboratory_test_details ltd ON ltd.laboratory_tests = rptd.laboratory_tests 
+        LEFT JOIN laboratory_test_details ltd ON ltd.laboratory_tests = rptd.laboratory_tests 
           AND ltd.laboratory_id = rptd.laboratory_id
         LEFT JOIN billing b ON b.medical_num = rptd.medical_num AND b.laboratory_tests = rptd.ID
         LEFT JOIN sample_results sr ON sr.referral_test_ID = rptd.ID
@@ -145,7 +145,7 @@ export async function GET(request: NextRequest) {
           b.adv_amt,
           b.balance_amt,
           b.billing_id AS bill_id,
-          ltd.test_price,
+          COALESCE(ltd.test_price, 0) AS test_price,
           rptd.billing_id,
           rptd.sample_collected_id,
           rptd.labapproval_id,
@@ -171,10 +171,10 @@ export async function GET(request: NextRequest) {
         INNER JOIN investigation_test_details itd ON itd.parse_id = rptd.laboratory_tests
         INNER JOIN laboratory_details ld ON ld.laboratory_id = rptd.laboratory_id
         LEFT JOIN physician_appointment pa ON pa.physician_id = rptd.physician_id
-        INNER JOIN status_master sm ON sm.status_id = rptd.pat_status
+        LEFT JOIN status_master sm ON sm.status_id = rptd.pat_status
         INNER JOIN referral_confirmation_details rcd ON rcd.patient_unique_id = rptd.patient_unique_id 
           AND rcd.medical_num = rptd.medical_num
-        INNER JOIN laboratory_test_details ltd ON ltd.laboratory_tests = rptd.laboratory_tests 
+        LEFT JOIN laboratory_test_details ltd ON ltd.laboratory_tests = rptd.laboratory_tests 
           AND ltd.laboratory_id = rptd.laboratory_id
         LEFT JOIN billing b ON b.medical_num = rptd.medical_num AND b.laboratory_tests = rptd.ID
         LEFT JOIN sample_results sr ON sr.referral_test_ID = rptd.ID
@@ -182,9 +182,114 @@ export async function GET(request: NextRequest) {
         )`,
       [medicalNum, medicalNumSpecial, medicalNum, medicalNumSpecial]
     );
-    console.log("Test Records:", testRecords);
+
+    // Fallback: if no tests found (e.g. legacy data with parse_parent_id != 0), fetch without that filter
+    let testRecordsToUse = testRecords;
+    if (testRecords.length === 0) {
+      const fallbackRecords = await query<TestRecordRow[]>(
+        `(SELECT DISTINCT 
+            rptd.instruction,
+            ltd.instruction as test_instruction,
+            ltd.methodology,
+            sr.sample_value,
+            sr.referral_test_ID,
+            itd.investigation_id,
+            b.tot_amt,
+            b.discount,
+            b.net_amt,
+            b.adv_amt,
+            b.balance_amt,
+            b.billing_id AS bill_id,
+            COALESCE(ltd.test_price, 0) as test_price,
+            rptd.billing_id,
+            rptd.sample_collected_id,
+            rptd.labapproval_id,
+            rptd.ID,
+            rptd.report_filename,
+            rcd.brief_history,
+            itd.test_name,
+            rcd.phy_advice,
+            rptd.laboratory_tests,
+            rptd.date,
+            rptd.time,
+            rptd.created_on,
+            sm.status,
+            sm.status_id,
+            rptd.pat_status,
+            ltd.unit,
+            ltd.reference_range,
+            rptd.medical_num,
+            rptd.parse_parent_id,
+            rptd.patient_unique_id
+          FROM referral_patient_test_details rptd
+          INNER JOIN referral_patient_details rpd ON rptd.main_patient_id = rpd.referral_patient_id
+          INNER JOIN investigation_test_details itd ON itd.parse_id = rptd.laboratory_tests
+          INNER JOIN laboratory_details ld ON ld.laboratory_id = rptd.laboratory_id
+          LEFT JOIN status_master sm ON sm.status_id = rptd.pat_status
+          INNER JOIN referral_confirmation_details rcd ON rcd.patient_unique_id = rptd.patient_unique_id 
+            AND rcd.medical_num = rptd.medical_num
+          LEFT JOIN laboratory_test_details ltd ON ltd.laboratory_tests = rptd.laboratory_tests 
+            AND ltd.laboratory_id = rptd.laboratory_id
+          LEFT JOIN billing b ON b.medical_num = rptd.medical_num AND b.patient_unique_id = rptd.patient_unique_id
+          LEFT JOIN sample_results sr ON sr.referral_test_ID = rptd.ID
+          WHERE (rptd.medical_num = ? or rptd.medical_num = ?) AND rptd.dependent_id = 0
+        )
+        UNION
+        (SELECT DISTINCT 
+            rptd.instruction,
+            ltd.instruction as test_instruction,
+            ltd.methodology,
+            sr.sample_value,
+            sr.referral_test_ID,
+            itd.investigation_id,
+            b.tot_amt,
+            b.discount,
+            b.net_amt,
+            b.adv_amt,
+            b.balance_amt,
+            b.billing_id AS bill_id,
+            COALESCE(ltd.test_price, 0) as test_price,
+            rptd.billing_id,
+            rptd.sample_collected_id,
+            rptd.labapproval_id,
+            rptd.ID,
+            rptd.report_filename,
+            rcd.brief_history,
+            itd.test_name,
+            rcd.phy_advice,
+            rptd.laboratory_tests,
+            rptd.date,
+            rptd.time,
+            rptd.created_on,
+            sm.status,
+            sm.status_id,
+            rptd.pat_status,
+            ltd.unit,
+            ltd.reference_range,
+            rptd.medical_num,
+            rptd.parse_parent_id,
+            rptd.patient_unique_id
+          FROM referral_patient_test_details rptd
+          INNER JOIN patient_dep_details pdd ON rptd.dependent_id = pdd.patient_dep_id
+          INNER JOIN investigation_test_details itd ON itd.parse_id = rptd.laboratory_tests
+          INNER JOIN laboratory_details ld ON ld.laboratory_id = rptd.laboratory_id
+          LEFT JOIN status_master sm ON sm.status_id = rptd.pat_status
+          INNER JOIN referral_confirmation_details rcd ON rcd.patient_unique_id = rptd.patient_unique_id 
+            AND rcd.medical_num = rptd.medical_num
+          LEFT JOIN laboratory_test_details ltd ON ltd.laboratory_tests = rptd.laboratory_tests 
+            AND ltd.laboratory_id = rptd.laboratory_id
+          LEFT JOIN billing b ON b.medical_num = rptd.medical_num AND b.patient_unique_id = rptd.patient_unique_id
+          LEFT JOIN sample_results sr ON sr.referral_test_ID = rptd.ID
+          WHERE (rptd.medical_num = ? or rptd.medical_num = ?) AND rptd.dependent_id > 0
+        )`,
+        [medicalNum, medicalNumSpecial, medicalNum, medicalNumSpecial]
+      );
+      testRecordsToUse = fallbackRecords;
+    }
+
+    console.log("Test Records:", testRecordsToUse);
     // 4. Map test records to frontend-friendly structure
-    const patientTestDetails = testRecords.map((record) => ({
+    const patientTestDetails = testRecordsToUse.map((record) => ({
       testName: record.test_name || "Unknown Test",
       testId: record.laboratory_tests,
       date: record.date ? new Date(record.date).toISOString().split('T')[0] : "N/A",
