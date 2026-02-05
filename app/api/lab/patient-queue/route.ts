@@ -42,6 +42,7 @@ export async function GET(request: NextRequest) {
     const params: (string | number)[] = [laboratoryId];
       whereSql += ` AND (p.lab_test_status != 5 OR p.billing_status !=2)`;
 
+      
     if (searchQuery.trim()) {
       const searchWildcard = `%${searchQuery}%`;
       whereSql += ` AND (

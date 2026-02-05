@@ -113,6 +113,7 @@ export default function ReportsPage({ params }: ReportsPageProps) {
   });
 
   const [approvedTestIds, setApprovedTestIds] = useState<Set<number>>(new Set());
+  const [isFinalApproved, setIsFinalApproved] = useState(false);
 
   // Resolve params
   useEffect(() => {
@@ -121,7 +122,6 @@ export default function ReportsPage({ params }: ReportsPageProps) {
       setResolvedParams(resolved);
     };
     resolveParams();
-
   }, [params]);
 
   // Fetch report data
@@ -151,10 +151,12 @@ export default function ReportsPage({ params }: ReportsPageProps) {
       }
     };
 
-    
-
     fetchReportData();
   }, [resolvedParams]);
+
+  // Check if all tests are approved
+  const allTestsApproved =
+    reportData?.tests.every((test) => test.reviewApprove === 'Approved') ?? false;
 
   const handleDownloadPDF = async () => {
     if (!reportContentRef.current) return;
@@ -212,22 +214,18 @@ export default function ReportsPage({ params }: ReportsPageProps) {
   // Open approval modal (Doctor login)
   const openApprovalModal = async (test: ReportData['tests'][0]) => {
     try {
-      // Call the API to fetch lab doctors
-      const response = await fetch(
-        `/api/lab/reports/labdoctors?testId=${test.testId}`
-      );
+      const response = await fetch(`/api/lab/reports/labdoctors?testId=${test.testId}`);
 
       if (!response.ok) {
         throw new Error('Failed to fetch lab doctors');
       }
 
       const result = await response.json();
-      
+
       if (!result.success) {
         throw new Error(result.message || 'Failed to fetch doctors');
       }
 
-      // Set the lab doctors from API response
       const doctors: DoctorOption[] = result.data.map((doc: any) => ({
         id: doc.id,
         name: doc.name,
@@ -235,7 +233,6 @@ export default function ReportsPage({ params }: ReportsPageProps) {
 
       setLabDoctors(doctors);
 
-      // Open the modal
       setModalApproval({
         isOpen: true,
         testId: test.testId,
@@ -259,17 +256,16 @@ export default function ReportsPage({ params }: ReportsPageProps) {
   // Handle doctor login and show approval table
   const handleDoctorLogin = async () => {
     if (!modalApproval.selectedDoctorId || !modalApproval.password) {
-      setModalApproval(prev => ({
+      setModalApproval((prev) => ({
         ...prev,
         error: 'Please select doctor and enter password',
       }));
       return;
     }
 
-    setModalApproval(prev => ({ ...prev, loading: true }));
+    setModalApproval((prev) => ({ ...prev, loading: true }));
 
     try {
-      // Call the API to validate doctor credentials
       const response = await fetch('/api/lab/reports/labdoctorlogin', {
         method: 'POST',
         headers: {
@@ -284,8 +280,7 @@ export default function ReportsPage({ params }: ReportsPageProps) {
       const result = await response.json();
 
       if (!response.ok || !result.success) {
-        // Password is wrong or doctor not found
-        setModalApproval(prev => ({
+        setModalApproval((prev) => ({
           ...prev,
           error: result.message || 'Invalid credentials',
           loading: false,
@@ -293,32 +288,27 @@ export default function ReportsPage({ params }: ReportsPageProps) {
         return;
       }
 
-      // Credentials are valid, proceed to approval modal
-      // Get selected doctor name
-      const selectedDoctor = LabDoctors.find(d => d.id === modalApproval.selectedDoctorId);
+      const selectedDoctor = LabDoctors.find((d) => d.id === modalApproval.selectedDoctorId);
       const doctorName = selectedDoctor?.name || 'Unknown Doctor';
 
-      // Get the test data to show in approval table
       if (!reportData || !reportData.tests) {
         throw new Error('No test data available');
       }
 
-      // Find the parent test that was clicked
-      const clickedTest = reportData.tests.find(t => t.testId === modalApproval.testId);
+      const clickedTest = reportData.tests.find((t) => t.testId === modalApproval.testId);
       if (!clickedTest) {
         throw new Error('Test not found');
       }
 
       const parentTestName = clickedTest.investigationName || 'Unknown Test';
 
-      // Filter tests that have the same investigation name (parent test)
-      // and need approval (sampleCollectedId === 2)
       const testsToApprove = reportData.tests
-        .filter(test => 
-          test.investigationName === clickedTest.investigationName && 
-          test.sampleCollectedId === 2
+        .filter(
+          (test) =>
+            test.investigationName === clickedTest.investigationName &&
+            test.sampleCollectedId === 2
         )
-        .map(test => ({
+        .map((test) => ({
           slNo: test.slNo,
           testName: test.testName,
           sampleResult: test.sampleResult,
@@ -327,7 +317,6 @@ export default function ReportsPage({ params }: ReportsPageProps) {
           testId: test.testId,
         }));
 
-      // Show approval table modal
       setModalApprovalTable({
         isOpen: true,
         parentTestName: parentTestName,
@@ -338,14 +327,13 @@ export default function ReportsPage({ params }: ReportsPageProps) {
         approvingTestId: null,
       });
 
-      // Close login modal
-      setModalApproval(prev => ({
+      setModalApproval((prev) => ({
         ...prev,
         isOpen: false,
         loading: false,
       }));
     } catch (err) {
-      setModalApproval(prev => ({
+      setModalApproval((prev) => ({
         ...prev,
         error: err instanceof Error ? err.message : 'Login failed',
         loading: false,
@@ -361,13 +349,12 @@ export default function ReportsPage({ params }: ReportsPageProps) {
     }
 
     try {
-      setModalApprovalTable(prev => ({
+      setModalApprovalTable((prev) => ({
         ...prev,
         approving: true,
         approvingTestId: testId,
       }));
 
-      // Call the API to approve the test
       const response = await fetch('/api/lab/reports', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -384,29 +371,26 @@ export default function ReportsPage({ params }: ReportsPageProps) {
         throw new Error(result.message || 'Failed to approve test');
       }
 
-      // Add testId to approved list
-      setApprovedTestIds(prev => new Set([...prev, testId]));
+      setApprovedTestIds((prev) => new Set([...prev, testId]));
 
       alert('Test approved successfully by ' + modalApprovalTable.doctorName);
-      
-      // Remove approved test from list
-      setModalApprovalTable(prev => ({
+
+      setModalApprovalTable((prev) => ({
         ...prev,
-        tests: prev.tests.filter(t => t.testId !== testId),
+        tests: prev.tests.filter((t) => t.testId !== testId),
         approving: false,
         approvingTestId: null,
       }));
 
-      // If all tests approved, close modal
       if (modalApprovalTable.tests.length === 1) {
         setTimeout(() => {
-          setModalApprovalTable(prev => ({ ...prev, isOpen: false }));
+          setModalApprovalTable((prev) => ({ ...prev, isOpen: false }));
           window.location.reload();
         }, 1000);
       }
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Approval failed');
-      setModalApprovalTable(prev => ({
+      setModalApprovalTable((prev) => ({
         ...prev,
         approving: false,
         approvingTestId: null,
@@ -422,13 +406,12 @@ export default function ReportsPage({ params }: ReportsPageProps) {
     }
 
     try {
-      setModalApprovalTable(prev => ({
+      setModalApprovalTable((prev) => ({
         ...prev,
         approving: true,
       }));
 
-      // Approve all tests sequentially
-      const testIds = modalApprovalTable.tests.map(t => t.testId);
+      const testIds = modalApprovalTable.tests.map((t) => t.testId);
       let successCount = 0;
       let failureCount = 0;
       const successfulTestIds: number[] = [];
@@ -458,32 +441,69 @@ export default function ReportsPage({ params }: ReportsPageProps) {
         }
       }
 
-      // Add all successfully approved tests to the approvedTestIds Set
       if (successfulTestIds.length > 0) {
-        setApprovedTestIds(prev => new Set([...prev, ...successfulTestIds]));
+        setApprovedTestIds((prev) => new Set([...prev, ...successfulTestIds]));
       }
 
       alert(`Approval complete: ${successCount} approved, ${failureCount} failed`);
 
-      // Clear modal and refresh
-      setModalApprovalTable(prev => ({ ...prev, isOpen: false, tests: [], approving: false }));
+      setModalApprovalTable((prev) => ({ ...prev, isOpen: false, tests: [], approving: false }));
       setTimeout(() => {
         window.location.reload();
       }, 1000);
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Bulk approval failed');
-      setModalApprovalTable(prev => ({
+      setModalApprovalTable((prev) => ({
         ...prev,
         approving: false,
       }));
     }
   };
 
-  // Handle signout
   const handleSignout = () => {
-    setModalApprovalTable(prev => ({ ...prev, isOpen: false }));
+    setModalApprovalTable((prev) => ({ ...prev, isOpen: false }));
     window.location.reload();
   };
+
+const handleFinalApproval = async () => {
+  if (!resolvedParams) {
+    alert("Cannot proceed: missing parameters");
+    return;
+  }
+
+  if (!confirm("Are you sure you want to finalize and approve this report? This action cannot be undone.")) {
+    return;
+  }
+
+  try {
+    const response = await fetch("/api/lab/reports/finalapproval", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        medical_num: resolvedParams.medical_num,
+        patient_id: resolvedParams.patient_id,
+      }),
+    });
+
+    const result = await response.json();
+
+    if (!response.ok || !result.success) {
+      throw new Error(result.message || "Final approval failed");
+    }
+
+    setIsFinalApproved(true);
+    alert("Report has been finally approved!");
+    
+    // Optional: refresh the page or refetch data
+    // window.location.reload();
+
+  } catch (err) {
+    console.error(err);
+    alert(err instanceof Error ? err.message : "Failed to complete final approval");
+  }
+};
 
   if (loading) {
     return (
@@ -584,12 +604,13 @@ export default function ReportsPage({ params }: ReportsPageProps) {
                     <th className="px-4 py-2 text-left font-bold text-slate-900">Unit</th>
                     <th className="px-4 py-2 text-left font-bold text-slate-900">Reference Range</th>
                     <th className="px-4 py-2 text-left font-bold text-slate-900">Status</th>
-                    <th className="px-4 py-2 text-center font-bold text-slate-900 w-20 print:hidden">Action</th>
+                    <th className="px-4 py-2 text-center font-bold text-slate-900 w-20 print:hidden">
+                      Action
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {(() => {
-                    // Group tests by investigation name
                     const groupedTests = reportData.tests.reduce((acc: any, test) => {
                       if (!acc[test.investigationName]) {
                         acc[test.investigationName] = [];
@@ -605,15 +626,27 @@ export default function ReportsPage({ params }: ReportsPageProps) {
                             key={`${investigationName}-${idx}`}
                             className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}
                           >
-                            <td className="px-4 py-3 border-b border-slate-200 text-slate-800">{test.testId}</td>
-                            <td className="px-4 py-3 border-b border-slate-200 text-slate-800">{investigationName}</td>
-                            <td className="px-4 py-3 border-b border-slate-200 text-slate-800 font-medium">{test.testName}</td>
-                            <td className="px-4 py-3 border-b border-slate-200 text-slate-800">{test.date}</td>
+                            <td className="px-4 py-3 border-b border-slate-200 text-slate-800">
+                              {test.testId}
+                            </td>
+                            <td className="px-4 py-3 border-b border-slate-200 text-slate-800">
+                              {investigationName}
+                            </td>
+                            <td className="px-4 py-3 border-b border-slate-200 text-slate-800 font-medium">
+                              {test.testName}
+                            </td>
+                            <td className="px-4 py-3 border-b border-slate-200 text-slate-800">
+                              {test.date}
+                            </td>
                             <td className="px-4 py-3 border-b border-slate-200 text-slate-800 font-semibold text-blue-600">
                               {test.sampleResult}
                             </td>
-                            <td className="px-4 py-3 border-b border-slate-200 text-slate-800">{test.unit}</td>
-                            <td className="px-4 py-3 border-b border-slate-200 text-slate-800">{test.referenceRange}</td>
+                            <td className="px-4 py-3 border-b border-slate-200 text-slate-800">
+                              {test.unit}
+                            </td>
+                            <td className="px-4 py-3 border-b border-slate-200 text-slate-800">
+                              {test.referenceRange}
+                            </td>
                             <td className="px-4 py-3 border-b border-slate-200 text-slate-800">
                               <span
                                 className={`px-2 py-1 rounded text-xs font-semibold ${
@@ -629,21 +662,19 @@ export default function ReportsPage({ params }: ReportsPageProps) {
                               {test.sampleCollectedId >= 2 && test.reviewApprove === 'Pending' ? (
                                 <button
                                   onClick={() => openApprovalModal(test)}
-                                  title="Click to approve this test"
-                                  
                                   className="inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded text-xs font-semibold bg-orange-600 hover:bg-orange-700 text-white transition-colors"
                                 >
                                   Approve
                                 </button>
-                              ) : (
-                                test.reviewApprove === 'Approved'?
-                                (<span title="Pending Sample Approval" className="inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded text-xs font-semibold bg-green-400 text-white-800">
+                              ) : test.reviewApprove === 'Approved' ? (
+                                <span className="inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded text-xs font-semibold bg-green-600 text-white">
                                   <CheckCircle size={14} /> Approved
-                                 </span>):
-                                 (<span title="Pending Sample Approval" className="inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded text-xs font-semibold bg-orange-200 text-green-800">
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded text-xs font-semibold bg-orange-200 text-orange-800">
                                   <CheckCircle size={14} /> Pending
-                                </span>)
-                               )}
+                                </span>
+                              )}
                             </td>
                           </tr>
                         ))}
@@ -655,21 +686,62 @@ export default function ReportsPage({ params }: ReportsPageProps) {
             </div>
           </div>
 
+          {/* FINAL APPROVAL SECTION */}
+          <div className="mt-12 mb-10 flex flex-col items-center print:hidden">
+            <button
+              onClick={handleFinalApproval}
+              disabled={!allTestsApproved || isFinalApproved}
+              className={`
+                px-10 py-4 rounded-xl font-bold text-lg shadow-xl transition-all transform
+                ${
+                  isFinalApproved
+                    ? 'bg-emerald-700 text-white cursor-default'
+                    : allTestsApproved
+                    ? 'bg-indigo-600 hover:bg-indigo-700 text-white hover:scale-105'
+                    : 'bg-gray-400 text-gray-700 cursor-not-allowed'
+                }
+              `}
+            >
+              {isFinalApproved ? 'Final Approved ✓' : 'Final Approval'}
+            </button>
+
+            {!allTestsApproved && !isFinalApproved && (
+              <p className="mt-4 text-sm text-slate-500 italic">
+                All individual tests must be approved before final approval
+              </p>
+            )}
+          </div>
+
+          {/* SIGNATURE SECTION */}
+          <div className="mt-16 grid grid-cols-1 md:grid-cols-2 gap-16 pt-12 border-t-2 border-slate-400 print:border-slate-600">
+            <div className="text-center">
+              <div className="h-28 border-b-2 border-slate-800 w-72 mx-auto mb-4"></div>
+              <p className="font-semibold text-slate-900">Authorized Signatory</p>
+              <p className="text-sm text-slate-600 mt-1">Laboratory Director / Pathologist</p>
+            </div>
+
+            <div className="text-center">
+              <div className="h-28 border-b-2 border-slate-800 w-72 mx-auto mb-4"></div>
+              <p className="font-semibold text-slate-900">Checked & Verified By</p>
+              <p className="text-sm text-slate-600 mt-1">Senior Lab Technician / Doctor</p>
+            </div>
+          </div>
+
           {/* FOOTER */}
-          <div className="px-6 py-4 border-t-2 border-slate-300 print:border-t print:border-gray-400 text-center text-xs text-slate-500 font-medium mt-6">
+          <div className="px-6 py-5 border-t-2 border-slate-300 print:border-t print:border-gray-400 text-center text-xs text-slate-500 font-medium mt-12">
             This is a computer-generated laboratory report. Generated on {currentDate}
           </div>
         </div>
       </div>
 
-      {/* MODAL 1: DOCTOR LOGIN / APPROVAL STEP 1 */}
+      {/* MODAL 1: DOCTOR LOGIN */}
       {modalApproval.isOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-lg max-w-sm w-full mx-4">
             <div className="bg-blue-600 text-white px-6 py-4 flex justify-between items-center rounded-t-lg">
               <h5 className="text-lg font-semibold">Doctor Approval</h5>
               <button
-                onClick={() => setModalApproval(prev => ({ ...prev, isOpen: false }))}
+                onClick={() => setModalApproval((prev) => ({ ...prev, isOpen: false }))}
                 className="text-white hover:text-gray-200"
               >
                 <X size={20} />
@@ -690,7 +762,7 @@ export default function ReportsPage({ params }: ReportsPageProps) {
                 <select
                   value={modalApproval.selectedDoctorId || ''}
                   onChange={(e) =>
-                    setModalApproval(prev => ({
+                    setModalApproval((prev) => ({
                       ...prev,
                       selectedDoctorId: e.target.value ? Number(e.target.value) : null,
                       error: '',
@@ -715,7 +787,7 @@ export default function ReportsPage({ params }: ReportsPageProps) {
                   type="password"
                   value={modalApproval.password}
                   onChange={(e) =>
-                    setModalApproval(prev => ({
+                    setModalApproval((prev) => ({
                       ...prev,
                       password: e.target.value,
                       error: '',
@@ -724,7 +796,9 @@ export default function ReportsPage({ params }: ReportsPageProps) {
                   placeholder="Enter password"
                   className="w-full px-4 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
-                <p className="text-xs text-slate-500 mt-1">Enter the doctor&quot;s password for authentication</p>
+                <p className="text-xs text-slate-500 mt-1">
+                  Enter the doctor&apos;s password for authentication
+                </p>
               </div>
             </div>
 
@@ -737,7 +811,7 @@ export default function ReportsPage({ params }: ReportsPageProps) {
                 {modalApproval.loading ? 'Validating...' : 'Continue'}
               </button>
               <button
-                onClick={() => setModalApproval(prev => ({ ...prev, isOpen: false }))}
+                onClick={() => setModalApproval((prev) => ({ ...prev, isOpen: false }))}
                 className="flex-1 px-4 py-2 bg-gray-400 text-white rounded-md hover:bg-gray-500 transition-colors font-medium"
               >
                 Cancel
@@ -747,14 +821,16 @@ export default function ReportsPage({ params }: ReportsPageProps) {
         </div>
       )}
 
-      {/* MODAL 2: APPROVAL TABLE / APPROVAL STEP 2 */}
+      {/* MODAL 2: APPROVAL TABLE */}
       {modalApprovalTable.isOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-lg max-w-3xl w-full mx-4 max-h-[90vh] overflow-y-auto">
             <div className="bg-green-600 text-white px-6 py-4 flex justify-between items-center rounded-t-lg sticky top-0">
               <div>
                 <h5 className="text-lg font-semibold">{modalApprovalTable.parentTestName}</h5>
-                <p className="text-sm text-green-100 mt-1">Doctor: {modalApprovalTable.doctorName}</p>
+                <p className="text-sm text-green-100 mt-1">
+                  Doctor: {modalApprovalTable.doctorName}
+                </p>
               </div>
               <button
                 onClick={handleSignout}
@@ -772,8 +848,12 @@ export default function ReportsPage({ params }: ReportsPageProps) {
                       <th className="px-4 py-3 text-left font-bold text-slate-800">Test Name</th>
                       <th className="px-4 py-3 text-left font-bold text-slate-800">Sample Value</th>
                       <th className="px-4 py-3 text-left font-bold text-slate-800">Unit</th>
-                      <th className="px-4 py-3 text-left font-bold text-slate-800">Reference Range</th>
-                      <th className="px-4 py-3 text-center font-bold text-slate-800 w-24">Action</th>
+                      <th className="px-4 py-3 text-left font-bold text-slate-800">
+                        Reference Range
+                      </th>
+                      <th className="px-4 py-3 text-center font-bold text-slate-800 w-24">
+                        Action
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
@@ -826,7 +906,8 @@ export default function ReportsPage({ params }: ReportsPageProps) {
 
               <div className="bg-blue-50 border border-blue-200 rounded-md p-4 mb-6">
                 <p className="text-sm text-blue-800">
-                  <span className="font-semibold">Tests Remaining:</span> {modalApprovalTable.tests.length}
+                  <span className="font-semibold">Tests Remaining:</span>{' '}
+                  {modalApprovalTable.tests.length}
                 </p>
               </div>
             </div>

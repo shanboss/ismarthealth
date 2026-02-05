@@ -68,6 +68,7 @@ export default function SampleDetailsPage({ params }: BillingPageProps) {
   } | null>(null);
   const [samplesCollected, setSamplesCollected] = useState<Set<number>>(new Set());
   const [samplesApproved, setSamplesApproved] = useState<Set<number>>(new Set());
+  const [approveAll, setApproveAll] = useState(true);
   const [isUpdating, setIsUpdating] = useState<number | null>(null);
   const billContentRef = useRef<HTMLDivElement>(null);
 
@@ -93,13 +94,32 @@ export default function SampleDetailsPage({ params }: BillingPageProps) {
         );
 
         if (!response.ok) {
-          console.error("Failed to fetch billing data:", response.statusText);
-          throw new Error('Failed to fetch billing data');
+          console.error("Failed to fetch Sample data:", response.statusText);
+          throw new Error('Failed to fetch Sample data');
         }
 
         const result = await response.json();
-        console.log("Billing data fetched successfully:", result.data);
+        console.log("Sample data fetched successfully:", result.data);
         setPatientData(result.data);
+        
+        // FIX: Use result.data directly instead of patientData (which is stale in the setTimeout callback)
+        const billingData = result.data;
+        setTimeout(()=>{
+          
+          for (let i = 0; billingData && i < billingData.patientTestDetails.length; i++) {
+            const test = billingData.patientTestDetails[i];
+            // Check if sample is NOT approved (null or not 1/2)
+            if(test.sampleCollectedId == null || (test.sampleCollectedId !=1 && test.sampleCollectedId !=2) ){
+                  setApproveAll(false);
+            }
+          }
+          
+          if(approveAll) {
+            console.log("Approve All = true (enabled)");
+          } else {
+            console.log("Approve All = false (disabled - all samples approved)");
+          }
+        }, 2000);
         setLoading(false);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'An error occurred');
@@ -110,7 +130,6 @@ export default function SampleDetailsPage({ params }: BillingPageProps) {
 
     fetchBillingData();
   }, [resolvedParams]);
-
   /**
    * Updated to match new route.ts POST API
    * 
@@ -216,13 +235,24 @@ export default function SampleDetailsPage({ params }: BillingPageProps) {
       const test = patientData.patientTestDetails[i];
       if ((test.sampleCollectedId ?? null) !== null && test.sampleCollectedId >= 1) {
         alreadyApprovedTests.push(test.testName);
+      };
+      if(test.sampleCollectedId === null || (test.sampleCollectedId !=1 && test.sampleCollectedId !=2) ){
+        setApproveAll(false);
       }
-    }
+    };
 
     // If there are already approved tests, show error and don't proceed
     if (alreadyApprovedTests.length > 0) {
       setError(`Some samples are already approved: ${alreadyApprovedTests.join(', ')}`);
       return;
+    }
+
+    try {
+      setIsUpdating(-1);
+    }
+
+    catch (error) {
+      console.error(error);
     }
 
     setIsUpdating(-1); // Use -1 to indicate "approve all" mode
@@ -532,6 +562,7 @@ export default function SampleDetailsPage({ params }: BillingPageProps) {
                 <tbody className="divide-y divide-slate-300 print:divide-y print:divide-gray-400">
                   {patientTestDetails.length > 0 ? (
                     patientTestDetails.map((test, index) => (
+                      
                       <tr key={index} className="print:hover:bg-transparent">
                         <td className="p-3 text-center font-bold text-slate-900">{index + 1}</td>
                         <td className="p-3 font-bold text-slate-900">{test.testName}</td>
@@ -549,6 +580,7 @@ export default function SampleDetailsPage({ params }: BillingPageProps) {
                             }`}
                           >
                             {test.status}
+                            {test.sampleCollectedId}
                           </span>
                         </td>
                         <td className="p-3 text-center print:hidden space-y-2">
@@ -598,13 +630,13 @@ export default function SampleDetailsPage({ params }: BillingPageProps) {
                       <td className="p-3 text-center print:hidden">
                         <button
                           onClick={() => handleApproveAllSamples()}
-                          disabled={isUpdating !== null}
+                          disabled={isUpdating !== null || approveAll}
                           className={`w-full inline-flex items-center justify-center gap-1 font-bold py-1.5 px-2.5 rounded text-[10px] transition-all ${
-                            isUpdating === -1
+                            isUpdating === -1 || approveAll
                               ? 'bg-gray-500 text-white cursor-wait'
                               : 'bg-blue-600 hover:bg-blue-700 text-white'
                           }`}
-                          title="Approve all samples"
+                          title={approveAll ? "All samples are already approved" : "Approve all remaining samples"}
                         >
                           {isUpdating === -1
                             ? "Approving All..."

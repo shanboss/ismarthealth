@@ -82,8 +82,6 @@ const DUMMY_DOCTORS: DoctorOption[] = [
   { id: 4, name: 'Dr. Emily Davis' },
 ];
 
-const DUMMY_PASSWORD = '12345678';
-
 export default function ReportsPage({ params }: ReportsPageProps) {
   const [reportData, setReportData] = useState<ReportData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -113,6 +111,8 @@ export default function ReportsPage({ params }: ReportsPageProps) {
     approving: false,
     approvingTestId: null,
   });
+
+  const [approvedTestIds, setApprovedTestIds] = useState<Set<number>>(new Set());
 
   // Resolve params
   useEffect(() => {
@@ -265,23 +265,35 @@ export default function ReportsPage({ params }: ReportsPageProps) {
       }));
       return;
     }
-    alert(modalApproval.selectedDoctorId);
-
-    // Validate password (dummy validation)
-    if (modalApproval.password !== DUMMY_PASSWORD) {
-      setModalApproval(prev => ({
-        ...prev,
-        error: 'Invalid password. Use 123456 for demo',
-      }));
-      return;
-    }
 
     setModalApproval(prev => ({ ...prev, loading: true }));
 
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Call the API to validate doctor credentials
+      const response = await fetch('/api/lab/reports/labdoctorlogin', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          laboratory_doctors_id: modalApproval.selectedDoctorId,
+          password: modalApproval.password,
+        }),
+      });
 
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        // Password is wrong or doctor not found
+        setModalApproval(prev => ({
+          ...prev,
+          error: result.message || 'Invalid credentials',
+          loading: false,
+        }));
+        return;
+      }
+
+      // Credentials are valid, proceed to approval modal
       // Get selected doctor name
       const selectedDoctor = LabDoctors.find(d => d.id === modalApproval.selectedDoctorId);
       const doctorName = selectedDoctor?.name || 'Unknown Doctor';
@@ -343,6 +355,11 @@ export default function ReportsPage({ params }: ReportsPageProps) {
 
   // Handle individual test approval
   const handleApproveSingleTest = async (testId: number) => {
+    if (!resolvedParams) {
+      alert('Error: Parameters not loaded');
+      return;
+    }
+
     try {
       setModalApprovalTable(prev => ({
         ...prev,
@@ -350,21 +367,25 @@ export default function ReportsPage({ params }: ReportsPageProps) {
         approvingTestId: testId,
       }));
 
-      // Here you would typically call an API to approve the test
-      // Example:
-      // const response = await fetch('/api/lab/approve-test', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({
-      //     doctorId: modalApprovalTable.selectedDoctorId,
-      //     testId: testId,
-      //     patientId: resolvedParams?.patient_id,
-      //     medicalNum: resolvedParams?.medical_num,
-      //   }),
-      // });
+      // Call the API to approve the test
+      const response = await fetch('/api/lab/reports', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          test_id: testId,
+          medical_num: resolvedParams.medical_num,
+          patient_id: resolvedParams.patient_id,
+        }),
+      });
 
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 800));
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.message || 'Failed to approve test');
+      }
+
+      // Add testId to approved list
+      setApprovedTestIds(prev => new Set([...prev, testId]));
 
       alert('Test approved successfully by ' + modalApprovalTable.doctorName);
       
@@ -395,223 +416,234 @@ export default function ReportsPage({ params }: ReportsPageProps) {
 
   // Handle approve all
   const handleApproveAll = async () => {
+    if (!resolvedParams) {
+      alert('Error: Parameters not loaded');
+      return;
+    }
+
     try {
       setModalApprovalTable(prev => ({
         ...prev,
         approving: true,
       }));
 
-      // Here you would typically call an API to approve all tests
-      // Example:
-      // const response = await fetch('/api/lab/approve-tests', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({
-      //     doctorId: modalApprovalTable.selectedDoctorId,
-      //     testIds: modalApprovalTable.tests.map(t => t.testId),
-      //     patientId: resolvedParams?.patient_id,
-      //     medicalNum: resolvedParams?.medical_num,
-      //   }),
-      // });
+      // Approve all tests sequentially
+      const testIds = modalApprovalTable.tests.map(t => t.testId);
+      let successCount = 0;
+      let failureCount = 0;
+      const successfulTestIds: number[] = [];
 
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      for (const testId of testIds) {
+        try {
+          const response = await fetch('/api/lab/reports', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              test_id: testId,
+              medical_num: resolvedParams.medical_num,
+              patient_id: resolvedParams.patient_id,
+            }),
+          });
 
-      alert('All tests approved successfully by ' + modalApprovalTable.doctorName);
-      setModalApprovalTable(prev => ({ ...prev, isOpen: false, approving: false }));
-      
-      // Reload report data
+          const result = await response.json();
+
+          if (response.ok && result.success) {
+            successCount++;
+            successfulTestIds.push(testId);
+          } else {
+            failureCount++;
+          }
+        } catch (err) {
+          failureCount++;
+        }
+      }
+
+      // Add all successfully approved tests to the approvedTestIds Set
+      if (successfulTestIds.length > 0) {
+        setApprovedTestIds(prev => new Set([...prev, ...successfulTestIds]));
+      }
+
+      alert(`Approval complete: ${successCount} approved, ${failureCount} failed`);
+
+      // Clear modal and refresh
+      setModalApprovalTable(prev => ({ ...prev, isOpen: false, tests: [], approving: false }));
       setTimeout(() => {
         window.location.reload();
       }, 1000);
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Approval failed');
-      setModalApprovalTable(prev => ({ ...prev, approving: false }));
+      alert(err instanceof Error ? err.message : 'Bulk approval failed');
+      setModalApprovalTable(prev => ({
+        ...prev,
+        approving: false,
+      }));
     }
   };
 
   // Handle signout
   const handleSignout = () => {
     setModalApprovalTable(prev => ({ ...prev, isOpen: false }));
-    setModalApproval({
-      isOpen: false,
-      testId: null,
-      selectedDoctorId: null,
-      password: '',
-      error: '',
-      loading: false,
-    });
+    window.location.reload();
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center text-slate-600">
-        Loading report...
+      <div className="flex items-center justify-center min-h-screen bg-slate-100">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+          <p className="text-slate-600 text-lg">Loading report...</p>
+        </div>
       </div>
     );
   }
 
   if (error || !reportData) {
     return (
-      <div className="min-h-screen flex items-center justify-center text-red-600">
-        {error || 'Report not found'}
+      <div className="flex items-center justify-center min-h-screen bg-slate-100">
+        <div className="bg-white rounded-lg shadow-lg p-6 max-w-md w-full">
+          <div className="text-center">
+            <h2 className="text-xl font-bold text-red-600 mb-2">Error Loading Report</h2>
+            <p className="text-slate-600 mb-4">{error || 'No data available'}</p>
+            <Link
+              href="/lab/reports"
+              className="inline-block px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors font-medium"
+            >
+              Back to Reports
+            </Link>
+          </div>
+        </div>
       </div>
     );
   }
 
-  const { laboratory, patient, tests } = reportData;
-  const currentDate = format(new Date(), 'dd MMM yyyy');
-  const reportDate = tests[0]?.date ? format(new Date(tests[0].date), 'dd MMM yyyy') : currentDate;
+  const currentDate = format(new Date(), 'dd MMM yyyy, hh:mm a');
 
   return (
-    <div className="min-h-screen bg-slate-50 p-6 print:p-0 print:bg-white">
-      <div className="max-w-4xl mx-auto bg-white rounded-xl shadow-xl overflow-hidden print:shadow-none print:rounded-none">
-        <Link
-          href="/lab"
-          className="inline-flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-lg transition-colors border border-slate-300 shadow-sm print:hidden m-4"
-          title="Back to Lab Dashboard"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="M19 12H5M12 19l-7-7 7-7" />
-          </svg>
-          <span className="hidden sm:inline">Back</span>
-        </Link>
-
-        {/* ACTION BUTTONS */}
-        <div className="flex justify-end gap-3 p-4 print:hidden border-b border-slate-200">
-          <button
-            onClick={handleDownloadPDF}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm font-medium"
-          >
-            <Download size={16} /> Download PDF
-          </button>
-          <button
-            onClick={handlePrint}
-            className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors text-sm font-medium"
-          >
-            <Printer size={16} /> Print
-          </button>
+    <div className="min-h-screen bg-slate-100 p-4">
+      <div className="max-w-6xl mx-auto bg-white rounded-lg shadow-lg overflow-hidden">
+        {/* HEADER CONTROLS */}
+        <div className="flex items-center justify-between px-6 py-4 bg-slate-50 border-b border-slate-200 print:hidden">
+          <h1 className="text-2xl font-bold text-slate-900">Laboratory Report</h1>
+          <div className="flex gap-3">
+            <button
+              onClick={handleDownloadPDF}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors font-medium"
+            >
+              <Download size={18} /> Download PDF
+            </button>
+            <button
+              onClick={handlePrint}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors font-medium"
+            >
+              <Printer size={18} /> Print
+            </button>
+          </div>
         </div>
 
         {/* REPORT CONTENT */}
-        <div ref={reportContentRef} className="p-6 print:p-4">
-          {/* HEADER */}
-          <div className="grid grid-cols-2 gap-4 border-b-2 border-slate-300 print:border-b print:border-gray-400 pb-4">
-            <div>
-              <h1 className="text-xl font-black uppercase text-slate-900">{laboratory.name}</h1>
-              <p className="text-sm text-slate-600 mt-1">{laboratory.address}</p>
-              <p className="text-sm text-slate-600 mt-0.5">
-                <span className="font-bold">Phone:</span> {laboratory.phone}
-              </p>
-            </div>
-            <div className="text-right">
-              <h2 className="text-xl font-black uppercase text-slate-900">Laboratory Report</h2>
-              <p className="text-sm text-slate-600 mt-1">
-                <span className="font-bold">Report Date:</span> {reportDate}
-              </p>
-            </div>
+        <div ref={reportContentRef} className="p-6">
+          {/* LABORATORY HEADER */}
+          <div className="text-center border-b-2 border-slate-300 pb-4 mb-6">
+            <h2 className="text-2xl font-bold text-slate-900">{reportData.laboratory.name}</h2>
+            <p className="text-slate-600 text-sm mt-1">{reportData.laboratory.address}</p>
+            <p className="text-slate-600 text-sm">Phone: {reportData.laboratory.phone}</p>
           </div>
 
           {/* PATIENT DETAILS */}
-          <div className="grid grid-cols-3 gap-4 py-4 text-sm border-b-2 border-slate-300 print:border-b print:border-gray-400">
-            <div>
-              <p className="font-bold uppercase text-xs text-slate-700">Patient Name</p>
-              <p className="font-medium text-slate-900 mt-0.5">{patient.name}</p>
+          <div className="grid grid-cols-2 gap-6 mb-6 text-sm">
+            <div className="border border-slate-300 rounded-lg p-4">
+              <h3 className="font-bold text-slate-900 mb-2 text-base">Patient Information</h3>
+              <div className="space-y-1 text-slate-700">
+                <p><span className="font-semibold">Name:</span> {reportData.patient.name}</p>
+                <p><span className="font-semibold">Sex:</span> {reportData.patient.sex}</p>
+                <p><span className="font-semibold">Age:</span> {reportData.patient.age}</p>
+                <p><span className="font-semibold">Phone:</span> {reportData.patient.phone}</p>
+              </div>
             </div>
-            <div>
-              <p className="font-bold uppercase text-xs text-slate-700">Phone</p>
-              <p className="font-medium text-slate-900 mt-0.5">{patient.phone}</p>
-            </div>
-            <div>
-              <p className="font-bold uppercase text-xs text-slate-700">Sex</p>
-              <p className="font-medium text-slate-900 mt-0.5">{patient.sex}</p>
-            </div>
-            <div>
-              <p className="font-bold uppercase text-xs text-slate-700">Age</p>
-              <p className="font-medium text-slate-900 mt-0.5">{patient.age}</p>
-            </div>
-            <div>
-              <p className="font-bold uppercase text-xs text-slate-700">Referred By</p>
-              <p className="font-medium text-slate-900 mt-0.5">{patient.referredDoctor}</p>
-            </div>
-            <div>
-              <p className="font-bold uppercase text-xs text-slate-700">Medical No</p>
-              <p className="font-medium text-slate-900 mt-0.5">{resolvedParams?.medical_num}</p>
+
+            <div className="border border-slate-300 rounded-lg p-4">
+              <h3 className="font-bold text-slate-900 mb-2 text-base">Referred Doctor</h3>
+              <div className="space-y-1 text-slate-700">
+                <p>{reportData.patient.referredDoctor || 'N/A'}</p>
+                <p className="text-xs text-slate-500 mt-2">Doctor Name and Details</p>
+              </div>
             </div>
           </div>
 
-          {/* TEST DETAILS – GROUPED BY INVESTIGATION NAME */}
-          <div className="mt-6">
-            <h3 className="text-base font-bold uppercase text-slate-900 mb-3">Test Details</h3>
+          {/* TESTS TABLE */}
+          <div className="mb-6">
+            <h3 className="text-lg font-bold text-slate-900 mb-3 uppercase">Laboratory Test Results</h3>
             <div className="overflow-x-auto border border-slate-300 rounded-lg">
-              <table className="w-full border-collapse text-xs">
+              <table className="w-full border-collapse text-sm">
                 <thead>
-                  <tr className="bg-slate-50 border-b border-slate-200">
-                    <th className="px-3 py-2 text-left font-bold uppercase text-slate-700 w-12">S.No</th>
-                    <th className="px-3 py-2 text-left font-bold uppercase text-slate-700">Test Name</th>
-                    <th className="px-3 py-2 text-left font-bold uppercase text-slate-700 w-28">Date</th>
-                    <th className="px-3 py-2 text-left font-bold uppercase text-slate-700 w-24">Time</th>
-                    <th className="px-3 py-2 text-left font-bold uppercase text-slate-700">Result</th>
-                    <th className="px-3 py-2 text-left font-bold uppercase text-slate-700 w-20">Unit</th>
-                    <th className="px-3 py-2 text-left font-bold uppercase text-slate-700">Reference Range</th>
-                    <th className="px-3 py-2 text-left font-bold uppercase text-slate-700 w-24">Review</th>
-                    <th className="px-3 py-2 text-left font-bold uppercase text-slate-700 w-32">Action</th>
+                  <tr className="bg-slate-200 border-b-2 border-slate-300">
+                    <th className="px-4 py-2 text-left font-bold text-slate-900">Sl No</th>
+                    <th className="px-4 py-2 text-left font-bold text-slate-900">Investigation</th>
+                    <th className="px-4 py-2 text-left font-bold text-slate-900">Test Name</th>
+                    <th className="px-4 py-2 text-left font-bold text-slate-900">Date</th>
+                    <th className="px-4 py-2 text-left font-bold text-slate-900">Result</th>
+                    <th className="px-4 py-2 text-left font-bold text-slate-900">Unit</th>
+                    <th className="px-4 py-2 text-left font-bold text-slate-900">Reference Range</th>
+                    <th className="px-4 py-2 text-left font-bold text-slate-900">Status</th>
+                    <th className="px-4 py-2 text-center font-bold text-slate-900 w-20 print:hidden">Action</th>
                   </tr>
                 </thead>
                 <tbody>
                   {(() => {
-                    const grouped = tests.reduce((acc, test) => {
-                      const key = test.investigationName?.trim() || 'NA';
-                      if (!acc[key]) acc[key] = [];
-                      acc[key].push(test);
+                    // Group tests by investigation name
+                    const groupedTests = reportData.tests.reduce((acc: any, test) => {
+                      if (!acc[test.investigationName]) {
+                        acc[test.investigationName] = [];
+                      }
+                      acc[test.investigationName].push(test);
                       return acc;
-                    }, {} as Record<string, typeof tests>);
+                    }, {});
 
-                    return Object.entries(grouped).map(([investigationName, groupTests]) => (
+                    return Object.entries(groupedTests).map(([investigationName, tests]: any) => (
                       <React.Fragment key={investigationName}>
-                        <tr className="bg-slate-100/70 border-y border-slate-300">
-                          <td
-                            colSpan={9}
-                            className="px-4 py-2.5 font-bold text-slate-800 uppercase tracking-wide text-sm"
-                          >
-                            {investigationName}
-                          </td>
-                        </tr>
-
-                        {groupTests.map((test) => (
+                        {tests.map((test: any, idx: number) => (
                           <tr
-                            key={test.slNo}
-                            className="border-b border-slate-100 last:border-b-0 hover:bg-slate-50"
+                            key={`${investigationName}-${idx}`}
+                            className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}
                           >
-                            <td className="px-3 py-2 font-medium text-slate-900">{test.slNo}</td>
-                            <td className="px-3 py-2 font-medium text-slate-900">{test.testName}</td>
-                            <td className="px-3 py-2 text-slate-600">{test.date}</td>
-                            <td className="px-3 py-2 text-slate-600">{test.time}</td>
-                            <td className="px-3 py-2 font-medium text-slate-700">{test.sampleResult}</td>
-                            <td className="px-3 py-2 text-slate-600">{test.unit}</td>
-                            <td className="px-3 py-2 text-slate-600">{test.referenceRange}</td>
-                            <td className="px-3 py-2 text-slate-600">{test.reviewApprove}</td>
-                            <td className="px-3 py-2 text-slate-600">
-                              {test.sampleCollectedId === 2 ? (
+                            <td className="px-4 py-3 border-b border-slate-200 text-slate-800">{test.testId}</td>
+                            <td className="px-4 py-3 border-b border-slate-200 text-slate-800">{investigationName}</td>
+                            <td className="px-4 py-3 border-b border-slate-200 text-slate-800 font-medium">{test.testName}</td>
+                            <td className="px-4 py-3 border-b border-slate-200 text-slate-800">{test.date}</td>
+                            <td className="px-4 py-3 border-b border-slate-200 text-slate-800 font-semibold text-blue-600">
+                              {test.sampleResult}
+                            </td>
+                            <td className="px-4 py-3 border-b border-slate-200 text-slate-800">{test.unit}</td>
+                            <td className="px-4 py-3 border-b border-slate-200 text-slate-800">{test.referenceRange}</td>
+                            <td className="px-4 py-3 border-b border-slate-200 text-slate-800">
+                              <span
+                                className={`px-2 py-1 rounded text-xs font-semibold ${
+                                  test.reportStatus === 'Completed'
+                                    ? 'bg-green-100 text-green-800'
+                                    : 'bg-yellow-100 text-yellow-800'
+                                }`}
+                              >
+                                {test.reportStatus}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 border-b border-slate-200 text-center print:hidden">
+                              {test.sampleCollectedId >= 2 && test.reviewApprove === 'Pending' ? (
                                 <button
                                   onClick={() => openApprovalModal(test)}
-                                  className="w-full inline-flex items-center justify-center gap-1 font-bold py-1.5 px-2.5 rounded text-[10px] transition-all bg-red-600 hover:bg-red-700 text-white print:hidden"
+                                  title="Click to approve this test"
+                                  
+                                  className="inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded text-xs font-semibold bg-orange-600 hover:bg-orange-700 text-white transition-colors"
                                 >
                                   Approve
                                 </button>
                               ) : (
-                                <span className="text-slate-600">{test.reportStatus}</span>
-                              )}
+                                test.reviewApprove === 'Approved'?
+                                (<span title="Pending Sample Approval" className="inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded text-xs font-semibold bg-green-400 text-white-800">
+                                  <CheckCircle size={14} /> Approved
+                                 </span>):
+                                 (<span title="Pending Sample Approval" className="inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded text-xs font-semibold bg-orange-200 text-green-800">
+                                  <CheckCircle size={14} /> Pending
+                                </span>)
+                               )}
                             </td>
                           </tr>
                         ))}
@@ -692,7 +724,7 @@ export default function ReportsPage({ params }: ReportsPageProps) {
                   placeholder="Enter password"
                   className="w-full px-4 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
-                <p className="text-xs text-slate-500 mt-1">Demo password: 123456</p>
+                <p className="text-xs text-slate-500 mt-1">Enter the doctor&quot;s password for authentication</p>
               </div>
             </div>
 
@@ -760,25 +792,31 @@ export default function ReportsPage({ params }: ReportsPageProps) {
                           {test.referenceRange}
                         </td>
                         <td className="px-4 py-3 border-b border-slate-200 text-center">
-                          <button
-                            onClick={() => handleApproveSingleTest(test.testId)}
-                            disabled={
-                              modalApprovalTable.approving &&
-                              modalApprovalTable.approvingTestId === test.testId
-                            }
-                            className="inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded text-xs font-semibold bg-green-600 hover:bg-green-700 text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                          >
-                            {modalApprovalTable.approving &&
-                            modalApprovalTable.approvingTestId === test.testId ? (
-                              <>
-                                <span className="animate-spin">⏳</span> Approving...
-                              </>
-                            ) : (
-                              <>
-                                <CheckCircle size={14} /> Approve
-                              </>
-                            )}
-                          </button>
+                          {approvedTestIds.has(test.testId) ? (
+                            <span className="inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded text-xs font-semibold bg-green-600 text-white">
+                              <CheckCircle size={14} /> Approved
+                            </span>
+                          ) : (
+                            <button
+                              onClick={() => handleApproveSingleTest(test.testId)}
+                              disabled={
+                                modalApprovalTable.approving &&
+                                modalApprovalTable.approvingTestId === test.testId
+                              }
+                              className="inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded text-xs font-semibold bg-orange-600 hover:bg-orange-700 text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            >
+                              {modalApprovalTable.approving &&
+                              modalApprovalTable.approvingTestId === test.testId ? (
+                                <>
+                                  <span className="animate-spin">⏳</span> Approving...
+                                </>
+                              ) : (
+                                <>
+                                  <CheckCircle size={14} /> Approve
+                                </>
+                              )}
+                            </button>
+                          )}
                         </td>
                       </tr>
                     ))}

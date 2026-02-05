@@ -271,7 +271,7 @@ export async function POST(req: NextRequest) {
       // Update patientqueue table
       await conn.query(
         `UPDATE patientqueue 
-         SET lab_test_status = 5, bill_status = 2 
+         SET lab_test_status = 4 
          WHERE medical_num = ? AND patient_unique_id = ?`,
         [medical_num, patient_id]
       );
@@ -279,7 +279,7 @@ export async function POST(req: NextRequest) {
       // Update referral_confirmation_details table
       await conn.query(
         `UPDATE referral_confirmation_details 
-         SET lab_test_status = 5, billing_status = 2 
+         SET lab_test_status = 4 
          WHERE medical_num = ? AND patient_unique_id = ?`,
         [medical_num, patient_id]
       );
