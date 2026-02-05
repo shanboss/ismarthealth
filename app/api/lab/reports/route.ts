@@ -263,13 +263,15 @@ export async function POST(req: NextRequest) {
     );
 
     const status = approvalStatus[0];
+    console.log("Approval Status:", status);
+    console.log(`Pending: ${status.count_pending}, Approved: ${status.count_approved}, Total: ${status.total_rows}`);
 
     // Step 3: If all tests are approved, update related tables
-    if (status.count_approved === status.total_rows) {
+    if (parseInt(status.count_approved) == parseInt(status.total_rows)) {
       // Update patientqueue table
       await conn.query(
         `UPDATE patientqueue 
-         SET lab_test_status = 4 
+         SET lab_test_status = 5, bill_status = 2 
          WHERE medical_num = ? AND patient_unique_id = ?`,
         [medical_num, patient_id]
       );

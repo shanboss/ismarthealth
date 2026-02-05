@@ -87,16 +87,20 @@ export default function SampleDetailsPage({ params }: BillingPageProps) {
     const fetchBillingData = async () => {
       try {
         setLoading(true);
+        console.log("Fetching billing data for:", resolvedParams);
         const response = await fetch(
           `/api/lab/samples?patient_id=${resolvedParams.patient_id}&medical_num=${resolvedParams.medical_num}`
         );
 
         if (!response.ok) {
+          console.error("Failed to fetch billing data:", response.statusText);
           throw new Error('Failed to fetch billing data');
         }
 
         const result = await response.json();
+        console.log("Billing data fetched successfully:", result.data);
         setPatientData(result.data);
+        setLoading(false);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'An error occurred');
       } finally {
@@ -321,7 +325,7 @@ export default function SampleDetailsPage({ params }: BillingPageProps) {
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-slate-600 font-medium">Loading billing details...</p>
+          <p className="text-slate-600 font-medium">Loading sample details...</p>
         </div>
       </div>
     );

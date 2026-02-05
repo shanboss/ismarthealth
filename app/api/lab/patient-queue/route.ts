@@ -40,10 +40,10 @@ export async function GET(request: NextRequest) {
     // 3. Build dynamic SQL for WHERE clause
     let whereSql = "WHERE p.laboratory_id = ?";
     const params: (string | number)[] = [laboratoryId];
+      whereSql += ` AND (p.lab_test_status != 5 OR p.billing_status !=2)`;
 
     if (searchQuery.trim()) {
       const searchWildcard = `%${searchQuery}%`;
-      whereSql += ` AND (p.lab_test_status !=5 OR p.bill_status !=2)`;
       whereSql += ` AND (
         p.BillId LIKE ? OR 
         p.firstname LIKE ? OR 
@@ -73,6 +73,7 @@ export async function GET(request: NextRequest) {
       ORDER BY p.created_on DESC 
       LIMIT ${safeLimit} OFFSET ${safeSkip}
     `;
+    console.log("Data SQL:", dataSql, "Params:", params);
     const patients = await query<PatientQueueRow[]>(dataSql, params);
 
     // 6. Calculate pagination metadata

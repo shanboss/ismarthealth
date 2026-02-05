@@ -130,6 +130,7 @@ export async function GET(request: NextRequest) {
         LEFT JOIN billing b ON b.medical_num = rptd.medical_num AND b.laboratory_tests = rptd.ID
         LEFT JOIN sample_results sr ON sr.referral_test_ID = rptd.ID
         WHERE (rptd.medical_num = ? or rptd.medical_num = ?) AND rptd.parse_parent_id = 0 
+        GROUP bY rptd.laboratory_tests
         )
       UNION
       (SELECT DISTINCT 
@@ -179,6 +180,7 @@ export async function GET(request: NextRequest) {
         LEFT JOIN billing b ON b.medical_num = rptd.medical_num AND b.laboratory_tests = rptd.ID
         LEFT JOIN sample_results sr ON sr.referral_test_ID = rptd.ID
         WHERE (rptd.medical_num = ? or rptd.medical_num = ?) AND rptd.parse_parent_id = 0 
+        GROUP BY rptd.laboratory_tests
         )`,
       [medicalNum, medicalNumSpecial, medicalNum, medicalNumSpecial]
     );

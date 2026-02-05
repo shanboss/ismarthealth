@@ -141,45 +141,6 @@ export async function POST(request: NextRequest) {
 
       console.log(`Updated referral_patient_test_details: ${updateResult[0].affectedRows} rows affected`);
 
-      // Step 2.5: Get parse_parent_id for the current test and check sample completion status
-      const parseParentIdRows = await connection.query(
-        `SELECT parse_parent_id FROM referral_patient_test_details WHERE ID = ?`,
-        [testDetailsId]
-      );
-
-      if (parseParentIdRows[0].length > 0) {
-        const parseParentId = parseParentIdRows[0][0]?.parse_parent_id;
-
-        // Step 2.6: Check if all samples for this parent test are collected (sample_collected_id = 2)
-        const sampleStatusRows = await connection.query(
-          `SELECT 
-            SUM(CASE WHEN sample_collected_id = 2 THEN 1 ELSE 0 END) AS sample_id_count,
-            COUNT(*) AS total_rows
-           FROM referral_patient_test_details 
-           WHERE medical_num = ? AND patient_unique_id = ? AND parse_parent_id = ?`,
-          [medicalNum, patientId, parseParentId]
-        );
-
-        const sampleStatus = sampleStatusRows[0][0];
-        const sampleIdCount = sampleStatus?.sample_id_count || 0;
-        const totalRows = sampleStatus?.total_rows || 0;
-
-        console.log(`Sample status check: sampleIdCount=${sampleIdCount}, totalRows=${totalRows}, parseParentId=${parseParentId}`);
-
-        // Step 2.7: If all samples for this parent test are collected, update child records
-        if (parseInt(sampleIdCount) == parseInt(totalRows) && parseInt(totalRows) > 0) {
-          console.log(`All samples collected for parent test ID=${parseParentId}. Updating child records...`);
-          const updateChildResult = await connection.query(
-            `UPDATE referral_patient_test_details 
-             SET sample_collected_id = 2 
-             WHERE medical_num = ? AND patient_unique_id = ? AND laboratory_tests = ?`,
-            [medicalNum, patientId, parseParentId]
-          );
-
-          console.log(`Updated child records: ${updateChildResult[0].affectedRows} rows affected for laboratory_tests=${parseParentId}`);
-        }
-      }
-
       // Step 3a: Check if there are any uncollected samples
       const pendingSamplesRows = await connection.query(
         `SELECT COUNT(*) as count FROM referral_patient_test_details 
